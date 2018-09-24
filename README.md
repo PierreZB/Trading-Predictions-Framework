@@ -1,5 +1,5 @@
-# TPF
-Trading Predictions Framework (TPF)
+# Trading Predictions Framework (TPF)
+
 This project's goal is to set-up a framework to be able to 
 - pull trading data for different instruments at different granularities
 - calculate a set of indicators
