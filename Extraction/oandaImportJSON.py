@@ -3,12 +3,16 @@ import pandas as pd
 import datetime as dt
 from pandas.io.json import json_normalize
 from headers import headers
+from pathlib import Path
 from extractionSettings import (
     instruments,
     granularities,
     dateFrom,
     dateTo
 )
+
+# Define file paths
+dataFolder = Path("Data/")
 
 # Generate empty data frames and lists
 df_raw = pd.DataFrame()
@@ -96,6 +100,18 @@ for datesLoad in datesLoadList:
                     df_parsed['minute'] = df_parsed['time'].str[14:-14]
                     df_parsed['second'] = df_parsed['time'].str[14:-14]
 
+                    # Create an ID field
+                    df_parsed['ID'] = (
+                        df_parsed['instrument'] + '|' +
+                        df_parsed['granularity'] + '|' +
+                        df_parsed['year'] +
+                        df_parsed['month'] +
+                        df_parsed['day'] + '|' +
+                        df_parsed['hour'] +
+                        df_parsed['minute'] +
+                        df_parsed['second']
+                        )
+
                     # Change columns names and order
                     df_parsed = df_parsed.rename(
                         index=str,
@@ -107,6 +123,7 @@ for datesLoad in datesLoadList:
                             }
                         )
                     df_parsed = df_parsed[[
+                        'ID',
                         'instrument',
                         'granularity',
                         'timestamp',
@@ -135,5 +152,5 @@ for datesLoad in datesLoadList:
 
 # Export output
 print(df_rawConcat)
-df_rawConcat.to_csv('Data/df_rawConcat.csv')
-df_rawConcat.to_json('Data/df_rawConcat.json', orient='index')
+df_rawConcat.to_csv(dataFolder / "df_rawConcat.csv")
+df_rawConcat.to_json(dataFolder / "df_rawConcat.json", orient='index')
