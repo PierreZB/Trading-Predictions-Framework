@@ -8,3 +8,5 @@ This project's goal is to set-up a framework to be able to
 
 In this Phase 1 (started September 2018), we will use Oanda as a source for the trading data, python to extract and transform, and orange to build the predictive model.
 Therefore, this GitHub project will gather python codes extracting from the Oanda API and transforming it, and storing the output into csv files.
+
+# test update by other user
