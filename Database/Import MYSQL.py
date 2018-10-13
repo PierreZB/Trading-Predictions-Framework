@@ -12,6 +12,7 @@ TABLES = {}
 
 TABLES['TP Framework'] = (
     "CREATE TABLE `TP Framework` ("
+    "  ``               VARCHAR(100) NOT NULL PRIMARY KEY,"
     "  `ID`             VARCHAR(100) NOT NULL PRIMARY KEY,"
     "  `instrument`     VARCHAR(20),"
     "  `granularity`    VARCHAR(5),"
@@ -74,9 +75,8 @@ cursor.close()
 cnx.close()
 
 
-
 #####   Read raw extract with pandas and import to MYSQL
-df = pd.read_csv("Data/df_rawConcat.csv")
+df = pd.read_csv("../Data/df_rawConcat.csv")
 
 #####	Validate data types
 print (df.dtypes)
