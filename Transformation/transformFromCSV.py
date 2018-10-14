@@ -121,8 +121,6 @@ df['Tmp03'] = 0
 df['Tmp04'] = 0
 df['Tmp05'] = 0
 df['Tmp06'] = 0
-df['Tmp07'] = 0
-df['Tmp08'] = 0
 
 
 # open Buy status at end of current candle and before close action
@@ -211,23 +209,23 @@ df['Tmp06'] = np.where(
     0
     )
 
-# Close Buy ON CLOSE
-df['Tmp07'] = np.where(
+# </editor-fold>
+
+# <editor-fold desc=" Position Outputs ">
+# Closing buying position
+df['Closing buying position'] = np.where(
     ((df['Tmp03'] == 1) & (df['Tmp01'] == 1) & (df['Tmp01'].shift(-1) == 0)),
     1,
     0
     )
 
-# Close Sell ON CLOSE
-df['Tmp08'] = np.where(
+# Close selling position
+df['Close selling position'] = np.where(
     ((df['Tmp03'] == 1) & (df['Tmp02'] == 1) & (df['Tmp02'].shift(-1) == 0)),
     1,
     0
     )
 
-# </editor-fold>
-
-# <editor-fold desc=" Position Outputs ">
 # Price on Open position; create field and format float 5
 df['Price on Open position'] = 0.00000
 
@@ -266,61 +264,37 @@ print(PrcOpPos(df))
 
 # Price on Close position; create field and format float 5
 df['Price on Close position'] = 0.00000
+df['Price on Close position'] = np.where(
+    (df['Closing buying position'] == 1) | (df['Close selling position'] == 1),
+    df['close'],
+    np.NaN
+    )
 
-# ##############################
-# NotePZB: Stopped here 20181010
-# ##############################
+# PL pips on Close; create field and format float 5
+df['Pips PL on Close any position'] = 0.00000
+
+conditions = [
+    (df['Closing buying position'] == 1),
+    (df['Close selling position'] == 1)
+    ]
+choices = [
+    df['Price on Close position'] - df['Price on Open position'],
+    df['Price on Open position'] - df['Price on Close position'],
+    ]
+
+df['Pips PL on Close any position'] = np.select(
+    conditions,
+    choices,
+    default=np.NaN
+    )
+
+# Pips PL any position cumlative
+df['Pips PL any position cumlative'] = (
+    df['Pips PL on Close any position'].fillna(0).cumsum(skipna=True)
+    )
 
 # export as csv
 fileOutput = dataFolder / "df_processed_tmp.csv"
 df.to_csv(fileOutput)
-# print(df)
-print(df[['open', 'Price on Open position']])
-
-
-'''
-# Loop through variables
-for vTP in list(range(49, 51 + 1, 1)):
-    for vSL in list(range(5, 6 + 1, 1)):
-
-        # Generate temporary df_transf for transformations
-        df_transf = df
-
-        # Calculated Fields Phase 1
-        df_transf['MaxLastRec'] = 1  # df_transf['open'] * (vTP + vSL)
-        df_transf['TP'] = vTP
-        df_transf['SL'] = vSL
-
-        # Extract the last record from df_transf
-        df_lastrec = df_transf.tail(1)
-
-        # Add extra field calculated over all recs
-        df_lastrec = df_lastrec.assign(
-                MaxValue=df_transf['MaxLastRec'].max()
-            )
-
-        # Concatenate to our final data frame
-        df_output = pd.concat(
-            [df_output, df_lastrec],
-            ignore_index=True,
-            sort=False
-            )
-
-        # Remove values from df_lastrec and df_transf
-        df_lastrec.drop(df_lastrec.index, inplace=True)
-
-# Remove values from df and df_transf
-df.drop(df.index, inplace=True)
-df_transf.drop(df_transf.index, inplace=True)
-
-# export as csv
-fileOutput = dataFolder / "df_processed.csv"
-df_output.to_csv(fileOutput)
-print(df_output)
-
-# elapsed time
-end_time = time.time()
-elapsed_time = end_time - start_time
-elapsed_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
-print(elapsed_time)
-'''
+print(df)
+# print(df[['Pips PL any position cumlative']])
