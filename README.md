@@ -11,7 +11,7 @@ This project's goal is to set-up a framework to be able to
 # Project Phases
 
 
-## Phase 1- POC
+## Phase 1 - POC
 - Extract
     - extract raw data from any source
 - Transform
