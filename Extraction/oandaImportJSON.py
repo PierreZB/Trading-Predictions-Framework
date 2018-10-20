@@ -2,7 +2,8 @@ import requests
 import pandas as pd
 import datetime as dt
 from pandas.io.json import json_normalize
-from headers import headers
+from headers_private import headers
+# from headers import headers
 from pathlib import Path
 from extractionSettings import (
     instruments,
@@ -79,7 +80,8 @@ for datesLoad in datesLoadList:
                     # Remove values from df
                     df_raw.drop(df_raw.index, inplace=True)
                     df_candles.drop(df_candles.index, inplace=True)
-                    df_raw, df_candles = pd.DataFrame(), pd.DataFrame()
+                    df_raw = pd.DataFrame()
+                    df_candles = pd.DataFrame()
 
                     # Generate date and time fields
                     df_parsed['timestamp'] = pd.to_datetime(
@@ -149,6 +151,15 @@ for datesLoad in datesLoadList:
                         ignore_index=True,
                         sort=False
                     )
+
+# Format numbers
+df_rawConcat.round({
+    'volume': 0,
+    'open': 5,
+    'high': 5,
+    'low': 5,
+    'close': 5
+    })
 
 # Export output
 print(df_rawConcat)
