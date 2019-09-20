@@ -1,153 +1,96 @@
-import time
+# <editor-fold desc=" ========== Import Libraries ================================================================== ">
 import numpy as np
 import pandas as pd
 from pathlib import Path
-# import random
+# </editor-fold>
 
-# <editor-fold desc=" Load data ">
+# <editor-fold desc=" ========== Load data ========================================================================= ">
 # Define file paths
-dataFolder = Path("Data/")
+dataFolder = Path("../Data/")
 sourceFile = dataFolder / "df_rawConcat.csv"
 
-# Store start time
-start_time = time.time()
-
-# Create empty data frames
-df = pd.DataFrame()
-df_output = pd.DataFrame()
-df_transf = pd.DataFrame()
-df_lastrec = pd.DataFrame()
+# Generate empty data frames
+dataFramesList = ['df', 'df_output', 'df_transf', 'df_lastrec']
+for dataFrameX in dataFramesList:
+    exec(dataFrameX + ' = pd.DataFrame([])')
+    dataFrameX = pd.DataFrame([])
 
 # Load csv, sort by ID, and reset the index
+''' Note that ID was generated in the extraction layer, as a combination of:
+instrument, granularity, year, month, day, hour, minute, second '''
 df = pd.read_csv(sourceFile, sep=",", encoding='utf-8', engine='c')
 df = df.sort_values(by=['ID'], ascending=True, na_position='first')
 df = df.reset_index(drop=True)
-# df = df.head(5)
-# print(df)
+
+# E265 - Limit df ot first 10 records to make tests quicker
+df = df.head(10)
 
 df = df.drop([
     'Unnamed: 0'
     ],
     axis=1)
-# </editor-fold>
-
-# <editor-fold desc=" Create random Buying, selling and closing signals ">
-
-df['Buying Signal tmp'] = np.random.randint(0, 2, df.shape[0])
-df['Selling Signal tmp'] = np.random.randint(0, 2, df.shape[0])
-df['Closing Signal tmp'] = np.random.randint(0, 2, df.shape[0])
-
-df['Buying Signal'] = np.where(
-    df['Buying Signal tmp'] == df['Buying Signal tmp'].shift(),
-    0,
-    df['Buying Signal tmp']
-    )
-df['Selling Signal'] = np.where(
-    df['Selling Signal tmp'] == df['Selling Signal tmp'].shift(),
-    0,
-    df['Selling Signal tmp']
-    )
-df['Closing Signal'] = np.where(
-    df['Closing Signal tmp'] == df['Closing Signal tmp'].shift(),
-    0,
-    df['Closing Signal tmp']
-    )
-
-# Drop tmp fields
-df = df.drop([
-    'Buying Signal tmp',
-    'Selling Signal tmp',
-    'Closing Signal tmp'
-    ],
-    axis=1)
 
 # </editor-fold>
 
-# <editor-fold desc=" Check Buying and Selling Signals ">
+# <editor-fold desc=" ========== Create random Buying, selling and closing signals ================================= ">
 
-# Here we want to make sure we don't have
-# a buying ans selling flag at the same time.
-# If this happens, the we reset both flags to 0.
-# The outuput will be the verified values, under the same column names.
+# Obviously, this section will have to be replaced with an actual algorithm
+signalFields = ['Buying Signal', 'Selling Signal', 'Closing Signal']
 
-'''conditions = [((df['Buying Signal'] == 1) & (df['Selling Signal'] == 1))]
-choices = [0]
-
-df['Buying Signal Verified'] = np.select(
-    conditions,
-    choices,
-    default=df['Buying Signal']
-    )'''
-
-df['Buying Signal Verified'] = np.where(
-    ((df['Buying Signal'] == 1) & (df['Selling Signal'] == 1)),
-    0,
-    df['Buying Signal']
-    )
-
-df['Selling Signal Verified'] = np.where(
-    ((df['Buying Signal'] == 1) & (df['Selling Signal'] == 1)),
-    0,
-    df['Selling Signal']
-    )
-
-# Drop tmp fields
-df = df.drop([
-    'Buying Signal',
-    'Selling Signal'
-    ],
-    axis=1)
-
-# Change columns names and order
-df = df.rename(
-    index=int,
-    columns={
-        "Buying Signal Verified": "Buying Signal",
-        "Selling Signal Verified": "Selling Signal"
-        }
-    )
+for signalField in signalFields:
+    # Generate random 0 and 1
+    df[signalField] = np.random.randint(0, 2, df.shape[0])
+    # Reset value to 0 when we find multiple 1 after each other
+    df[signalField] = np.where(
+        df[signalField] == df[signalField].shift(), 0, df[signalField])
 
 # </editor-fold>
 
-# <editor-fold desc=" Position Status Tmp Fields ">
+# <editor-fold desc=" ========== LOAD MAPS FOR ACTIONS ============================================================= ">
 
-# In this section we will calculate temporary fields (simple flags)
-# to know how have the positions been affected by the signals.
+'''
+Create main Mapping tables in the script.
+Keep the Core labels mapping table in excel so it's easier to update as a user.
+Learn how to apply maps in Python.
+And finish this goddam code! :)
+Next will be calculating the main indicators...
+'''
+
+# </editor-fold>
+
+# <editor-fold desc=" ========== Position Status Tmp Fields ======================================================== ">
+'''In this section we will calculate temporary fields (simple flags)
+to know how the positions have been affected by the signals.'''
 
 # Create the temporary fields, set at 0 by default
-df['Tmp01'] = 0
-df['Tmp02'] = 0
-df['Tmp03'] = 0
-df['Tmp04'] = 0
-df['Tmp05'] = 0
-df['Tmp06'] = 0
+tempFields = ['Tmp01', 'Tmp02', 'Tmp03', 'Tmp04', 'Tmp05', 'Tmp06']
+for tempField in tempFields:
+    df[tempField] = 0
 
 
-# open Buy status at end of current candle and before close action
-def Tmp01(dfx):
-    for i in range(0, len(dfx)):
-        # calculate current and previous record number
-        curRec = int(i)
-        prvRec = int(np.where(curRec == 0, 0, curRec-1))
-        # prepare the current column's previous record value
-        Tmp01_prv = dfx.at[prvRec, "Tmp01"]
-        # get main values required to calculate this column
-        buySgn_prvRec = dfx.at[prvRec, "Buying Signal"]
-        selSgn_prvRec = dfx.at[prvRec, "Selling Signal"]
-        clsSgn_prvRec = dfx.at[prvRec, "Closing Signal"]
+# open Buy status at the end of the current candle and before the close action
+for i in range(0, len(df)):
+    # calculate current and previous record number
+    curRec = int(i)
+    prvRec = int(np.where(curRec == 0, 0, curRec-1))
+    # prepare the current column's previous record value
+    Tmp01_prv = df.at[prvRec, "Tmp01"]
+    # get main values required to calculate this column
+    buySgn_prvRec = df.at[prvRec, "Buying Signal"]
+    selSgn_prvRec = df.at[prvRec, "Selling Signal"]
+    clsSgn_prvRec = df.at[prvRec, "Closing Signal"]
 
-        if (
-            ((clsSgn_prvRec == 1) and (buySgn_prvRec == 0))
-            or (selSgn_prvRec == 1)
-            or ((buySgn_prvRec == 0) and (Tmp01_prv == 0))
-            or (curRec == 0)
-        ):
-                dfx.at[curRec, "Tmp01"] = 0
-        else:
-                dfx.at[curRec, "Tmp01"] = 1
+    if (
+        (curRec == 0)
+        or (selSgn_prvRec == 1)
+        or ((buySgn_prvRec == 0) and (Tmp01_prv == 0))
+        or ((buySgn_prvRec == 0) and (clsSgn_prvRec == 1))
+    ):
+        df.at[curRec, "Tmp01"] = 0
+    else:
+        df.at[curRec, "Tmp01"] = 1
 
-
-print(Tmp01(df))
+print(df)
 
 
 # open Sell status at end of current candle and before close action
@@ -169,9 +112,9 @@ def Tmp02(dfx):
             or ((selSgn_prvRec == 0) and (Tmp02_prv == 0))
             or (curRec == 0)
         ):
-                dfx.at[curRec, "Tmp02"] = 0
+            dfx.at[curRec, "Tmp02"] = 0
         else:
-                dfx.at[curRec, "Tmp02"] = 1
+            dfx.at[curRec, "Tmp02"] = 1
 
 
 print(Tmp02(df))
@@ -211,7 +154,7 @@ df['Tmp06'] = np.where(
 
 # </editor-fold>
 
-# <editor-fold desc=" Position Outputs ">
+# <editor-fold desc=" ========== Position Outputs ================================================================== ">
 # Closing buying position
 df['Closing buying position'] = np.where(
     ((df['Tmp03'] == 1) & (df['Tmp01'] == 1) & (df['Tmp01'].shift(-1) == 0)),
@@ -246,17 +189,17 @@ def PrcOpPos(dfx):
             ((Tmp01_curRec == 1) and (Tmp05_curRec == 1))
             or ((Tmp02_curRec == 1) and (Tmp06_curRec == 1))
         ):
-                dfx.at[curRec, "Price on Open position"] = (
-                    dfx.at[curRec, "open"]
-                    )
+            dfx.at[curRec, "Price on Open position"] = (
+                dfx.at[curRec, "open"]
+                )
         elif (
             (Tmp01_curRec == 1) or (Tmp02_curRec == 1)
         ):
-                dfx.at[curRec, "Price on Open position"] = (
-                    dfx.at[prvRec, "Price on Open position"]
-                )
+            dfx.at[curRec, "Price on Open position"] = (
+                dfx.at[prvRec, "Price on Open position"]
+            )
         else:
-                dfx.at[curRec, "Price on Open position"] = np.NaN
+            dfx.at[curRec, "Price on Open position"] = np.NaN
 
 
 print(PrcOpPos(df))
@@ -298,3 +241,4 @@ fileOutput = dataFolder / "df_processed_tmp.csv"
 df.to_csv(fileOutput)
 print(df)
 # print(df[['Pips PL any position cumlative']])
+# </editor-fold>
