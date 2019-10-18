@@ -1,9 +1,6 @@
 *.DS_Store
+*[archives]*
 *private*
-*test*
-*Test*
-*Notes*
-*todelete*
 *.pyc
+*.qvw*
 *.xlsx
-Archive/
