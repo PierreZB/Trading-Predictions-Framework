@@ -46,7 +46,7 @@ dateTo = dt.date(2018, 12, 31)
 #   (Stop Loss Min value, Stop Loss Max Value, Stop Loss Step)
 # )
 backtestStrategyFileList = [
-    ('GBP_USD_M10_20080101_20081231_50pipsADay_StratThld002', (10, 250, 10), (10, 100, 10))
+    ('GBP_USD_M10_20080101_20081231_50pipsADay_StratThld010', (10, 250, 10), (10, 100, 10))
 ]
 
 # </editor-fold>

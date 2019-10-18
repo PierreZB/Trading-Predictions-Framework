@@ -1,6 +1,8 @@
 *.DS_Store
-*[archives]*
+*\[archives]*
+*\[notes]*
 *private*
 *.pyc
 *.qvw*
-*.xlsx
+#*.xls*
+*\data*

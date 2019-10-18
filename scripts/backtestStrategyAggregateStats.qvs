@@ -1,0 +1,147 @@
+LET vExternalDrive = 1;
+
+LET vMainPath = if(vExternalDrive = 1
+    ,'Z:\Volumes\TPF_data\'
+    ,'Z:\Users\mbp13\OneDrive\GitHub\Trading-Predictions-Framework\data\'
+);
+
+LET vStatsInputPath = vMainPath & 'strategy_backtesting_stats\';
+//LET vStatsInputPath = 'data\strategy_backtesting_stats\';
+LET vStatsOutputDetailed = '_QV_statsDetailed';
+LET vStatsOutputPnL = '_QV_statsPnL';
+
+tmp01:
+LOAD
+    ID,
+    sourceFile,
+    granularity,
+    timestamp,
+    takeProfit,
+    stopLoss,
+    profitLossOnClose,
+    buyingPosition,
+    sellingPosition,
+    hitTakeProfit,
+    hitStopLoss,
+    hitTakeProfitAndStopLoss,
+    numberOfPeriods,
+    noActionTaken
+FROM
+[$(vStatsInputPath)QV_*_Stats.csv]
+(txt, utf8, embedded labels, delimiter is ',', msq);
+
+
+detailed:
+LOAD
+    *,
+    positivePnL * buyingPosition                            as positiveBuyingPnL,
+    negativePnL * buyingPosition                            as negativeBuyingPnL,
+    positivePnL * sellingPosition                           as positiveSellingPnL,
+    negativePnL * sellingPosition                           as negativeSellingPnL,
+    profitLossOnClose * buyingPosition                      as buyingPnL,
+    profitLossOnClose * sellingPosition                     as sellingPnL
+;
+LOAD
+    *,
+    if(profitLossOnClose > 0, profitLossOnClose, null())    as positivePnL,
+    if(profitLossOnClose <= 0, profitLossOnClose, null())   as negativePnL
+Resident tmp01
+;
+
+
+PnL:
+NoConcatenate
+LOAD
+    *,
+    Round(
+        noActionTaken_sum / profitLossOnClose_count
+        ,0.001
+    )
+                                            as noActionTakenRatio,
+    Round(
+        positivePnL_sum / (-1 * negativePnL_sum)
+        ,0.01
+    )
+                                            as profitLossRatio,
+    Round(
+        positivePnL_count / (negativePnL_count + positivePnL_count)
+        ,0.01
+    )
+                                            as winRate,
+    if(takeProfit= -1 or stopLoss = -1
+        ,0
+        ,takeProfit / stopLoss
+    )
+                                            as riskRewardRatio
+;
+LOAD
+    sourceFile,
+    if(takeProfit = 99999, -1, takeProfit)  as takeProfit,
+    if(stopLoss = 99999, -1, stopLoss)      as stopLoss,
+
+
+    Sum(profitLossOnClose)                  as profitLossOnClose_sum,
+    Count(profitLossOnClose)                as profitLossOnClose_count,
+    Avg(profitLossOnClose)                  as profitLossOnClose_mean,
+    Median(profitLossOnClose)               as profitLossOnClose_median,
+    Min(profitLossOnClose)                  as profitLossOnClose_min,
+    Max(profitLossOnClose)                  as profitLossOnClose_max,
+    Stdev(profitLossOnClose)                  as profitLossOnClose_std,
+
+    Sum(positivePnL)                        as positivePnL_sum,
+    Count(positivePnL)                      as positivePnL_count,
+    Avg(positivePnL)                        as positivePnL_mean,
+
+    Sum(negativePnL)                        as negativePnL_sum,
+    Count(negativePnL)                      as negativePnL_count,
+    Avg(negativePnL)                        as negativePnL_mean,
+
+    Sum(buyingPnL)                          as buyingPnL_sum,
+    Count(buyingPnL)                        as buyingPnL_count,
+    Avg(buyingPnL)                          as buyingPnL_mean,
+
+    Sum(sellingPnL)                         as sellingPnL_sum,
+    Count(sellingPnL)                       as sellingPnL_count,
+    Avg(sellingPnL)                         as sellingPnL_mean,
+
+    Sum(positiveBuyingPnL)                  as positiveBuyingPnL_sum,
+    Count(positiveBuyingPnL)                as positiveBuyingPnL_count,
+    Avg(positiveBuyingPnL)                  as positiveBuyingPnL_mean,
+
+    Sum(negativeBuyingPnL)                  as negativeBuyingPnL_sum,
+    Count(negativeBuyingPnL)                as negativeBuyingPnL_count,
+    Avg(negativeBuyingPnL)                  as negativeBuyingPnL_mean,
+
+    Sum(positiveSellingPnL)                 as positiveSellingPnL_sum,
+    Count(positiveSellingPnL)               as positiveSellingPnL_count,
+    Avg(positiveSellingPnL)                 as positiveSellingPnL_mean,
+
+    Sum(negativeSellingPnL)                 as negativeSellingPnL_sum,
+    Count(negativeSellingPnL)               as negativeSellingPnL_count,
+    Avg(negativeSellingPnL)                 as negativeSellingPnL_mean,
+
+    Sum(hitTakeProfit)                      as hitTakeProfit_sum,
+
+    Sum(hitStopLoss)                        as hitStopLoss_sum,
+
+    Sum(hitTakeProfitAndStopLoss)           as hitTakeProfitAndStopLoss_sum,
+
+    Sum(numberOfPeriods)                    as numberOfPeriods_sum,
+    Count(numberOfPeriods)                  as numberOfPeriods_count,
+    Avg(numberOfPeriods)                    as numberOfPeriods_mean,
+
+    Sum(noActionTaken)                      as noActionTaken_sum
+
+Resident detailed
+Group By
+    sourceFile,
+    takeProfit,
+    stopLoss
+;
+
+STORE detailed into [$(vStatsInputPath)$(vStatsOutputDetailed).csv] (txt);
+STORE PnL into [$(vStatsInputPath)$(vStatsOutputPnL).csv] (txt);
+
+DROP Table detailed;
+
+DROP Table tmp01;
