@@ -1,6 +1,5 @@
 # <editor-fold desc=" ===== Import Libraries ============================== ">
 import sys
-sys.path.append('/Users/mbp13/OneDrive/GitHub/Trading-Predictions-Framework')
 from os import listdir, path
 import numpy as np
 from scripts.project_settings import *
@@ -8,15 +7,19 @@ from scripts.project_settings import *
 # Change pandas display options to show full tables
 pd.set_option('display.expand_frame_repr', False)
 pd.set_option('display.max_rows', 1000)
-
-""" Note: other pandas display options
-pd.set_option('display.max_columns', 500)
-pd.set_option('display.width', 500)
-# """
 # </editor-fold>
 
-
 # <editor-fold desc=" ===== Complete settings list ======================== ">
+
+takeProfitFrom = 99_999
+takeProfitTo = 99_999
+takeProfitStep = 10
+
+stopLossFrom = 99_999
+stopLossTo = 99_999
+stopLossStep = 10
+
+
 # Get list of files in directory with specific extension
 def list_files(directory, extension, exclude):
     return (
@@ -34,7 +37,8 @@ backtestStrategyFileList = []
 
 for file in filesList:
     backtestStrategyFileList.append(
-        (file, (99_999, 99_999, 10), (99_999, 99_999, 10))
+        (file, (takeProfitFrom, takeProfitTo, takeProfitStep),
+         (stopLossFrom, stopLossTo, stopLossStep))
     )
 
 # the list of files to backtest

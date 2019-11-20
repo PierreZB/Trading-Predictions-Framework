@@ -1,3 +1,298 @@
+# 2019-11-18 TPF Documentation
+
+# Introduction
+The Trading Prediction Framework (TPF) project main goal is to have a tool mainly based on python which enables users to backtest trading strategies and create predictive models thanks to supervised clustering machine learning tools.
+As of now, the goal of those predictive models is to predict trading decisions (when to buy, hold or sell); this means that the goal is not to predict the price itself, but instead, in a way, focusing on the general trend and momentum.
+
+As of now, the project isn’t fully automated, and still relies on csv files stored in folders (instead of a database).
+
+This document will explain how this project can be used as it is now.
+
+Main process flow:
+* Extracting data (with Oanda’s API)
+* Write an ROI optimisation strategy and backtest it
+* Calculate technical indicators and machine learning target
+* Use a clustering algorithm to make predictions on trading actions
+
+# Before you start
+## Requirements
+*TO BE COMPLETED*
+* Oanda API Token: [https://developer.oanda.com](https://developer.oanda.com)
+* Python packages:
+	* pandas 0.24.2
+	* numpy 1.17.3
+	* ta 0.4.7
+	* tpot 0.10.2
+	* scikit-learn 0.21.3
+	* scikit-mdr 0.4.4
+	* dask 2.7.0
+	* dask-core 2.7.0
+	* dask-glm 0.2.0
+	* dask-ml 1.1.1
+	* …
+
+## Softwares you may need
+* Orange (data mining; can be installed with Anaconda)
+* Knime (data mining)
+* Tableau (BI/Visualisation)
+* QlikView (BI/Visualisation)
+* Qlik Sense (BI/Visualisation)
+
+## Make sure you have created the following folders
+* data\raw_extracts
+* data\strategy_raw
+* data\strategy_backtesting
+* data\models_raw
+
+# Update oanda_api_headers.py
+Open "scripts\oanda_api_headers.py" and update the Authorization key with your own.
+
+## Update projects_settings.py
+Open "scripts\project_settings.py"
+
+And update projectPath to suite your needs. There are currently 3 examples paths
+Windows local folders:
+projectPath = 'C:/Users/username\OneDrive\GitHub\Trading-Predictions-Framework'
+
+macOS local folder:
+projectPath = '/Users/username/OneDrive/GitHub/Trading-Predictions-Framework'
+
+macOS external folder:
+projectPath = '/Volumes/TPF_data'
+
+If you already know what strategy you will want to test, you can also update right away the `strategyFolder` variable, and create this folder under each of these directories:
+
+* data\strategy_raw\
+* data\strategy_backtesting\
+* data\models_raw\
+* models\
+
+# Data extraction
+Open "scripts\extractionOanda.py" and update the following variables to suit your needs:
+
+## List of instruments you will extract
+`instruments_load_list`
+
+Note:
+* A list of all available instruments will be provided in an upcoming update
+
+## List of different granularities you want to extract
+`granularity_load_list`
+
+Notes:
+* As of now, there’s a limitation to the list of granularities that can be extracted because of the metrology used and the maximum number of records that can be pulled from Oanda at once with a free account.
+* Currently you cannot load a granularity below M10 (10 minutes).
+
+## Date range you want to extract
+Update the `dateFrom` and `dateTo` variables to define the scope of your extraction.
+The date format will be (YYYY, MM, DD).
+
+Notes:
+* `dateTo` should be before or equal to today’s date, otherwise the script will fail.
+
+
+### Notes about the data extraction process
+* if a file with similar parameters already exists, the data set will be extracted again and will overwrite this file; there is no option to change this behaviour at the moment
+* the data extraction will be stored as a csv file in "data\raw_extracts"
+* the format of the outputted file name will be INSTRUMENT_GRANULARITY_DATEFROM_DATETO.csv
+
+# Optimisation strategy
+If you haven’t done it yet, decide on your strategy name, and update in the projects_settings.py the “strategyFolder” variable, and create a folder with this same name under each of these directories:
+
+* data\strategy_raw\{myStrategy}
+* data\strategy_backtesting\{myStrategy}
+* data\models_raw\{myStrategy}
+* models\{myStrategy}
+
+Go to the strategies folder and create your strategy script: myStrategy.py
+
+In this file, apply any strategy you want; make sure your output contains at least those fields:
+
+```
+    'ID',
+    'timestamp',
+    'volume',
+    'open',
+    'high',
+    'low',
+    'close',
+    'buyingSignal',
+    'sellingSignal',
+    'closingSignal',
+    'referencePriceHigher',
+    'referencePriceLower'
+```
+
+These fields are the same as the ones you get from the extraction process.
+
+You can use the following line of code to easily reduce the list of saved fields to match with this requirement:
+```
+# Keep only default fields
+df = df[defaultColumnsList]
+```
+
+By default these fields have been generated containing only “0” in the extraction process:
+```
+    'buyingSignal',
+    'sellingSignal',
+    'closingSignal',
+    'referencePriceHigher',
+    'referencePriceLower'
+```
+
+It is therefore critical that your strategy updates them according to your needs.
+They will all be used for the backtesting process.
+
+The 3 first fields, should be booolean “0” or “1”
+```
+    'buyingSignal',
+    'sellingSignal',
+    'closingSignal'
+```
+
+If `buyingSignal` contains a “1”, the backtest process will read it as a buying signal, and potentially open a buying position (this will depend on a set of rules which we will review in the backtesting section).
+
+The 2 last fields should contain 0 (if the reference price is the closing price at the moment the position is opening) or the price value that the strategy requires to use
+```
+    'referencePriceHigher',
+    'referencePriceLower'
+```
+
+This was implemented for strategies where a Take Profit and Stop Loss rules are required, but based on different reference.
+For instance, in a buying position, the 7amUK strategy sets a take profit at x pips above the high of the 7 am candle, and a stop loss x pips below the low of the 7 am candle.
+
+You output file should be a csv, stored into this folder:
+"data\strategy_raw\{myOutputFile}"
+
+The format of the file should be:
+INSTRUMENT_GRANULARITY_DATEFROM_DATETO_strategyName{_strategy-settings-values}.csv
+
+Where the strategy settings values are the parameters related to your strategy, for instance, if your strategy relies on a MACD 12, 26, 9 you may want to record these settings in the file name to avoid overwriting your strategy output file, and keep track of the different versions of your strategy output files.
+
+# Backtesting
+Before backtesting anything, we need to define what actions to take depending on the signal defined by the strategy.
+For instance: what to do if the strategy happened to deliver at the same time a buying signal and a selling signal while we have a buying position running?
+
+These behaviours can be defined in the excel spreadsheet “backtestStrategy.xlsx”.
+
+* Tab “Actions”
+	* Columns A to F define the current situation.
+	* Column G sets the action to take. Each cell in this column has a drop-down menu from which you can select what action to take.
+	* Columns H to P can help you to check faster if the actions you set make sense.
+* Tab “ActionsMap”
+	* This tab defines the codes and label that are applied for each action
+	* I recommend not to change those settings unless you are sure to understand how it works
+	* The only fields that you may want to update here are the 3 last columns, the signals dedicated to machine learning.
+
+
+Now that this is done, open the "scripts\backtestStrategy.py" file.
+
+By default, this file backtests all strategy outputs in the strategy folder you are currently using, unless you comment out the section to define the files list manually.
+
+If you go with the default, update the following variables
+```
+takeProfitFrom = 50
+takeProfitTo = 100
+takeProfitStep = 10
+
+stopLossFrom = 10
+stopLossTo = 100
+stopLossStep = 10
+```
+
+By default, the process will also calculate a backtest without a take profit and without a stop loss (this will be done by setting the TP/SL values to 99,999).
+
+If you want to backtest your strategy without take profit and stop loss, set those variables this way:
+```
+takeProfitFrom = 99_999
+takeProfitTo = 99_999
+takeProfitStep = 1
+
+stopLossFrom = 99_999
+stopLossTo = 99_999
+stopLossStep = 1
+```
+
+*DO NOT* define the settings as follows, or the processing time will be excessively long:
+```
+takeProfitFrom = 10
+takeProfitTo = 99_999
+takeProfitStep = 10
+
+stopLossFrom = 10
+stopLossTo = 99_999
+stopLossStep = 1
+```
+
+
+If you want to define the files to backtest manually, you will have to uncomment the related section, and follow the pattern indicated:
+```
+"""
+# # Use this section if you prefer to define manually
+# ('csv file name', (Take Profit Min value, Take Profit Max Value, Take Profit Step), (Stop Loss Min value, Stop Loss Max Value, Stop Loss Step))
+backtestStrategyFileList = [
+    # ('outputFileName', (50, 50, 1), (10, 10, 1))
+    ('EURUSD_H1_20190101_20191026_swingV01_0005-0006-0024-0000', (99_999, 99_999, 1), (10, 50, 10))
+]
+# """
+```
+
+Now that you have produced your backtest files, you might want to compare their performance. I haven’t built a tool to do this automatically, so it’s up to you to use which ever tool you want. I found Tableau, QlikView and Qlik Sense very good tools for visualising those data sets quickly.
+
+Notes:
+* As of now, the backtest process is slow as it loops through the records of a pandas data frame, and I haven’t found a faster way to reach this result.
+* I have have written the backtest logic in python (backtestStrategy.py) and qlikview (backtestStrategy.qvs) and the qlikview file is much faster. However, some differences might still exist between those 2 processes, the python file is the most up to date.
+
+
+# Technical indicators
+Before heading for predictions, you may want to create variables that will help the machine learning algorithm to take decisions.
+
+In "models\{myStrategyIndicators}" you can create a python file which purpose will be to generate those variables, create a new `target` field which will be the target your machine learning algorithm will try to reach, and output this file into "data\models_raw\{mymodelsRawFile}"
+
+In my scripts I have chosen to use the “ta” python package to automatically calculate a bunch of technical indicators.
+I also define the `target` field in two different ways depending on my needs:
+* sometimes I simply convert the `signalLabel` field into a boolean value (0 = sell, 1 = buy); this results in a pure swing trading strategy (“binary”)
+* sometimes, I create 3 values ("true3"), based on the `buyingSignal`, `sellingSignal` and `closingSignal`; this results in 3 values: 0 = sell, 1 = hold, 2 = buy
+* you can obviously choose to generate the `target` field as you wish (for instance a binary target with only buying and closing buy signals…)
+
+# Predictions
+To make predictions, I used 3 differents tools:
+* Knime
+* Orange
+* TPOT
+
+First, I load the "data\models_raw\{mymodelsRawFile}" created previously in Knime, and analyse the correlations between my target field and all of the other variables.
+
+Usually, if none of the variables has an absolute correlation with the target greater than 50%, I go back to the strategy process as the predictions will very probably be poor.
+
+Then, I open Orange, and use the “prediction_template.ows” workflow to do a quick predictions test:
+* load the file "data\models_raw\{mymodelsRawFile}"
+	* ID -> Text
+	* timestamp -> Date
+	* target -> Categorical
+	* all other fields (variables) -> Numeric
+* select columns:
+	* move the variables you found relevant under “features”
+	* move “target” under “target variable”
+	* move “ID” and “timestamp” under “Meta Attributes”
+* for the first run, I usually prefer to filter out most of the records on the timestamp so orange can process data faster and I can make sure every part of the workflow is working as expected.
+* apply the pre-process method you find relevant to your data
+* choose the model/s relevant to your data
+* link the model/s to the prediction and Test and Score widgets
+* analyse the accuracy in the confusion matrix
+
+Usually, this gives me a good idea of the quality of the data I input.
+If I’m curious enough at that stage, I can save the predictions, and manually load them into a strategy file ("data\strategy_raw\{myStrategy}") and then backtest it.
+
+Finally, if I am satisfied with the accuracy of the predictions, I use the python package TPOT to find the model that fits the best the data, and gives the best predictions.
+
+As of now, I use TPOT with dask to parallelise the tasks, and I noticed it works the best in a Jupyter notebook.
+So I create a Jupyter notebook under "models\{myJupyterNotebook}" and run it in Jupyter Lab.
+
+-----
+
+# 2018-11-01 TPF Documentation
+
 # Trading Predictions Framework (TPF)
 
 This project's goal is to set-up a framework to be able to

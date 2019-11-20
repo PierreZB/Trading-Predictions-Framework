@@ -9,7 +9,6 @@ pd.set_option('display.max_rows', 50)
 # </editor-fold>
 
 # List of files on which you want to apply this strategy
-# high Time Frame first, then Low Time Frame
 strategyFileList = [
     # 'EURUSD_H1_20180101_20181231',
     'EURUSD_H1_20050101_20191026',

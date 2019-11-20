@@ -26,9 +26,9 @@ granularity_load_list = [
 ]
 
 # Date range - data is extracted 1 day at a time
-year = 2019
-dateFrom = dt.date(year, 1, 1)
-dateTo = dt.date(year, 10, 26)
+# year = 2019
+dateFrom = dt.date(2019, 1, 1)
+dateTo = dt.date(2019, 10, 26)
 # </editor-fold>
 
 # TODO [2] analyse existing data to avoid querying already existing data
