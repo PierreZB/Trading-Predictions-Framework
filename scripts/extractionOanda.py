@@ -6,6 +6,31 @@ from scripts.project_settings import *
 from scripts.oanda_api_headers_private import headers
 # from scripts.oanda_api_headers.py import headers
 
+# <editor-fold desc=" ===== Extraction Settings =========================== ">
+'''----------------------------------------------------------------
+Variables defining the scope of data to extract
+Note that for now, you can only load granularity from H5
+This is due to the fact that the API call is restricted to 500 recs
+and the script is currently written to extract 1 day of data at a time
+(S5 to M2 will not load the complete data set)
+----------------------------------------------------------------'''
+
+# TODO [3] extract the list of instruments available on the platform
+instruments_load_list = ['GBP_USD']  # 'GBP_USD', 'AUD_NZD', 'XCU_USD', 'BCO_USD'
+
+# 'S5', 'S10', 'S15', 'S30', 'M1', 'M2', 'M5',
+# 'M10', 'M15', 'M30', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H8', 'H12', 'D',
+# 'W', 'M'
+granularity_load_list = [
+    'M15', 'M30', 'H1', 'H6', 'H12', 'D', 'W'
+]
+
+# Date range - data is extracted 1 day at a time
+year = 2019
+dateFrom = dt.date(year, 1, 1)
+dateTo = dt.date(year, 10, 26)
+# </editor-fold>
+
 # TODO [2] analyse existing data to avoid querying already existing data
 
 # Generate list of date to load, as strings
@@ -136,7 +161,8 @@ for index, dateInstrGran in enumerate(extractList):
             df_parsed['timestamp'] = pd.to_datetime(
                 pd.Series(df_parsed['time']),
                 format="%Y-%m-%dT%H:%M:%S.000000000Z"
-                )
+                ).dt.tz_localize('UTC')
+
             df_parsed['dateYYYYMMDD'] = (
                 df_parsed['timestamp'].dt.strftime('%Y%m%d').astype(int)
                 )
@@ -180,31 +206,9 @@ for index, dateInstrGran in enumerate(extractList):
                     "c": "close"
                     }
                 )
-            df_parsed = df_parsed[[
-                'ID',
-                'instrument',
-                'granularity',
-                'timestamp',
-                'volume',
-                'open',
-                'high',
-                'low',
-                'close',
-                'complete',
-                'dateYYYYMMDD',
-                'timeHHMMSS',
-                'year',
-                'month',
-                'day',
-                'hour',
-                'minute',
-                'second',
-                'buyingSignal',
-                'sellingSignal',
-                'closingSignal',
-                'referencePriceHigher',
-                'referencePriceLower'
-                ]]
+
+            # Keep only default fields
+            df_parsed = df_parsed[defaultColumnsList]
 
             # Concatenate the output of each loop
             df_rawConcat = pd.concat(
@@ -227,13 +231,13 @@ for index, dateInstrGran in enumerate(extractList):
         to extract data looping over DAYS (which BTW implies that you 
         cannot extract granularity lower than M5).
         This Makes duplicates appear most of the time with granularity 
-        higher than H1.  
+        higher than H1.
         """
 
         outputFile = (
                 str(dataRawExtracts) + "/" +
                 str(
-                    instrument + "_" +
+                    str(instrument.replace('_', '',)) + "_" +
                     granularity + "_" +
                     str(dateFrom.strftime("%Y%m%d")) + "_" +
                     str(dateTo.strftime("%Y%m%d"))

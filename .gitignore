@@ -1,8 +1,10 @@
 *.DS_Store
-*\[archives]*
-*\[notes]*
+**.idea**
+**[archives]**
+**[notes]**
 *private*
 *.pyc
 *.qvw*
 #*.xls*
 *\data*
+*dask-worker-space*

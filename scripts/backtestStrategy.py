@@ -1,7 +1,7 @@
 # <editor-fold desc=" ===== Import Libraries ============================== ">
 import sys
 sys.path.append('/Users/mbp13/OneDrive/GitHub/Trading-Predictions-Framework')
-
+from os import listdir, path
 import numpy as np
 from scripts.project_settings import *
 
@@ -13,17 +13,44 @@ pd.set_option('display.max_rows', 1000)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 500)
 # """
-
-print('import libraries')
-print_time_lapsed()
 # </editor-fold>
 
-# <editor-fold desc=" ===== Complete settings list ======================== ">
 
-# Read the backtestStrategyFileList and create cartesian list with all
-# settings to backtest
+# <editor-fold desc=" ===== Complete settings list ======================== ">
+# Get list of files in directory with specific extension
+def list_files(directory, extension, exclude):
+    return (
+        f.replace('.' + extension, '') for f in listdir(directory) if (
+            (f.endswith('.' + extension)) &
+            (f.rfind(exclude))
+        )
+    )
+
+
+# Generate list of csv files in dataStrategyBacktestingStats
+filesList = list_files(str(dataStrategy), 'csv', '###')
+
+backtestStrategyFileList = []
+
+for file in filesList:
+    backtestStrategyFileList.append(
+        (file, (99_999, 99_999, 10), (99_999, 99_999, 10))
+    )
+
+# the list of files to backtest
 backtestStrategySettingsList = []
 
+"""
+# # Use this section if you prefer to define manually
+# ('csv file name', (Take Profit Min value, Take Profit Max Value, Take Profit Step), (Stop Loss Min value, Stop Loss Max Value, Stop Loss Step))
+backtestStrategyFileList = [
+    # ('outputFileName', (50, 50, 1), (10, 10, 1))
+    ('EURUSD_H1_20190101_20191026_swingV01_0005-0006-0024-0000', (99_999, 99_999, 1), (10, 50, 10))
+]
+# """
+
+
+# Read the backtestStrategyFileList and create cartesian list with all
 for fileTuple in backtestStrategyFileList:
     fileName_X, takeProfit_X, stopLoss_X = fileTuple
     takeProfitFrom, takeProfitTo, takeProfitRange = takeProfit_X
@@ -54,6 +81,9 @@ for fileTuple in backtestStrategyFileList:
 
     backtestStrategySettingsList = backtestStrategySettingsList + TPSLList
 
+    # Remove potential duplicates
+    backtestStrategySettingsList = list(set(backtestStrategySettingsList))
+
 print('Complete settings list')
 print_time_lapsed()
 # </editor-fold>
@@ -73,32 +103,23 @@ dfSituationToAction = pd.read_excel(
     names=['situationCode', 'actionCode']
 )
 
-print('dfSituationToAction')
-print_time_lapsed()
-
 dctSituationToAction = dfSituationToAction.to_dict()
-
-print('dctSituationToAction')
-print_time_lapsed()
 
 dfActionToUpdatedPosition = pd.read_excel(
     str(scriptsPath) + '/' + 'backtestStrategy.xlsx',
     sheet_name='ActionsMap',
-    index_col=0, usecols='F:L', header=None, skiprows=1,
+    index_col=0, usecols='F:M', header=None, skiprows=1,
     names=[
         'actionCode', 'codeForUpdatedPosition',
         'codeForPriceOnOpen', 'codePnLOnClose',
         'noActionTaken',
-        'buyingSignalText', 'sellingSignalText'
+        'buyingSignalText', 'sellingSignalText', 'signalLabel'
     ]
 )
 
-print('dfActionToUpdatedPosition')
-print_time_lapsed()
-
 dctActionToUpdatedPosition = dfActionToUpdatedPosition.to_dict()
 
-print('dctActionToUpdatedPosition')
+print('pre-loop')
 print_time_lapsed()
 # </editor-fold>
 
@@ -113,11 +134,11 @@ for backtestStrategyTuple in backtestStrategySettingsList:
 
     # Define file paths
     inputFile = (
-            str(dataStrategies) + '/' +
+            str(dataStrategy) + '/' +
             str(inputFileName) + str('.csv')
     )
 
-    outputFile = (
+    outputBacktestFile = (
             str(dataStrategyBacktesting) + '/' +
             str(inputFileName) + "_" +
             str("TP") + str(takeProfitPips).zfill(5) + "_" +
@@ -167,14 +188,11 @@ for backtestStrategyTuple in backtestStrategySettingsList:
         'currentPosition', 'priceOnOpenPosition', 'numberOfPeriods',
         'hitTakeProfit', 'hitStopLoss',
         'situationCode', 'actionCode', 'noActionTaken'
-        'profitLossOnClose'
+        'pnlPips'
     ]
 
     for tempField in tempFields:
         df[tempField] = 0
-
-    print('Load and prepare main df')
-    print_time_lapsed()
 
     # Loop through data frame records
     for i in range(0, len(df)):
@@ -309,7 +327,7 @@ for backtestStrategyTuple in backtestStrategySettingsList:
             ]
         )
 
-    print('End of Loop through records')
+    print('post-loop')
     print_time_lapsed()
 
     # buyingSignalText & sellingSignalText
@@ -320,19 +338,20 @@ for backtestStrategyTuple in backtestStrategySettingsList:
     df = pd.merge(df, dfCodePnLOnClose, on='actionCode', how='left')
     del dfCodePnLOnClose
 
-    df.loc[df['codePnLOnClose'] == 1, 'profitLossOnClose'] = (
+    # PnL as Pips
+    df.loc[df['codePnLOnClose'] == 1, 'pnlPips'] = (
         df['close'] - df['referencePriceHigherUpdated']
     )
 
-    df.loc[df['codePnLOnClose'] == 2, 'profitLossOnClose'] = (
+    df.loc[df['codePnLOnClose'] == 2, 'pnlPips'] = (
         df['referencePriceLowerUpdated'] - df['close']
     )
 
-    df.loc[df['codePnLOnClose'] == 3, 'profitLossOnClose'] = (
+    df.loc[df['codePnLOnClose'] == 3, 'pnlPips'] = (
         takeProfit
     )
 
-    df.loc[df['codePnLOnClose'] == 4, 'profitLossOnClose'] = (
+    df.loc[df['codePnLOnClose'] == 4, 'pnlPips'] = (
         ((df['referencePriceHigherUpdated'] -
           df['referencePriceLowerUpdated']) +
          stopLoss) * -1
@@ -340,7 +359,7 @@ for backtestStrategyTuple in backtestStrategySettingsList:
 
     # # Had an issue with this field; still don't know why
     # # I kept the "non-working" version in comments below
-    # df.loc[df['codePnLOnClose'] == 5, 'profitLossOnClose'] = np.where(
+    # df.loc[df['codePnLOnClose'] == 5, 'pnlPips'] = np.where(
     #     np.random.random(1) > 0.5,
     #     takeProfit,
     #     ((df['referencePriceHigherUpdated'] -
@@ -350,7 +369,7 @@ for backtestStrategyTuple in backtestStrategySettingsList:
     df.loc[
         (df['codePnLOnClose'] == 5) &
         (np.random.random(1) >= 0.5),
-        'profitLossOnClose'] = (
+        'pnlPips'] = (
             ((df['referencePriceHigherUpdated'] -
              df['referencePriceLowerUpdated']) +
              stopLoss) * -1
@@ -358,14 +377,74 @@ for backtestStrategyTuple in backtestStrategySettingsList:
 
     df.loc[
         (df['codePnLOnClose'] == 5) &
-        (pd.isna(df['profitLossOnClose'])),
-        'profitLossOnClose'] = (
+        (pd.isna(df['pnlPips'])),
+        'pnlPips'] = (
             takeProfit
     )
 
     # Prepare column for statistics file
     df['tradingPositionTmp'] = np.where(
-        df['profitLossOnClose'] < 999_999,
+        df['pnlPips'] < 999_999,
+        df['currentPosition'],
+        0
+    )
+
+    # PnL as Percent
+    df.loc[df['codePnLOnClose'] == 1, 'pnlPercent'] = (
+        (df['close'] - df['referencePriceHigherUpdated'])
+        / df['referencePriceHigherUpdated']
+    )
+
+    df.loc[df['codePnLOnClose'] == 2, 'pnlPercent'] = (
+        (df['referencePriceLowerUpdated'] - df['close'])
+        / df['referencePriceLowerUpdated']
+    )
+
+    df.loc[df['codePnLOnClose'] == 3, 'pnlPercent'] = (
+        takeProfit
+        / df['referencePriceLowerUpdated']
+    )
+
+    df.loc[df['codePnLOnClose'] == 4, 'pnlPercent'] = (
+        (((df['referencePriceHigherUpdated'] -
+          df['referencePriceLowerUpdated']) +
+         stopLoss) * -1)
+        / df['referencePriceLowerUpdated']
+    )
+
+    # # Had an issue with this field; still don't know why
+    # # I kept the "non-working" version in comments below
+    # df.loc[df['codePnLOnClose'] == 5, 'pnlPercent'] = np.where(
+    #     np.random.random(1) > 0.5,
+    #     takeProfit,
+    #     ((df['referencePriceHigherUpdated'] -
+    #       df['referencePriceLowerUpdated']) +
+    #      stopLoss) * -1
+    # )
+    df.loc[
+        (df['codePnLOnClose'] == 5) &
+        (np.random.random(1) >= 0.5),
+        'pnlPercent'] = ((
+            ((df['referencePriceHigherUpdated'] -
+             df['referencePriceLowerUpdated']) +
+             stopLoss) * -1)
+            / df['referencePriceLowerUpdated']
+    )
+
+    df.loc[
+        (df['codePnLOnClose'] == 5) &
+        (pd.isna(df['pnlPercent'])),
+        'pnlPercent'] = (
+            takeProfit
+            / df['referencePriceLowerUpdated']
+    )
+
+    # Convert field to % value
+    # df['pnlPercent'] = df['pnlPercent'] * 100
+
+    # Prepare column for statistics file
+    df['tradingPositionTmp'] = np.where(
+        df['pnlPercent'] < 999_999,
         df['currentPosition'],
         0
     )
@@ -374,6 +453,7 @@ for backtestStrategyTuple in backtestStrategySettingsList:
     dfSignalText = dfActionToUpdatedPosition[[
         'buyingSignalText',
         'sellingSignalText',
+        'signalLabel',
         'noActionTaken'
     ]]
 
@@ -388,7 +468,6 @@ for backtestStrategyTuple in backtestStrategySettingsList:
     )
 
     # <editor-fold desc=" ===== Prepare Stats fields ====================== ">
-
     # Positions
     df.loc[df['tradingPositionTmp'] == 1, 'statsBuyingPosition'] = 1
     df.loc[df['tradingPositionTmp'] == 2, 'statsSellingPosition'] = 1
@@ -421,96 +500,94 @@ for backtestStrategyTuple in backtestStrategySettingsList:
         'statsNumberOfPeriods'
     ] = df['numberOfPeriods']
 
+    df.loc[
+        (df['noActionTaken'] > 0),
+        'statsNoActionTaken'
+    ] = df['noActionTaken']
+
     # Risk/Reward
     df['takeProfit'] = takeProfitPips
     df['stopLoss'] = stopLossPips
 
     # Round floats
-    df = df.round({'profitLossOnClose': 5})
-
-    print('Additional Fields')
-    print_time_lapsed()
-    # </editor-fold>
-
-    # <editor-fold desc=" ===== Prepare Stats Fields ====================== ">
-    # Generate the data frame dedicated to aggregated statistics
-    dfStats = df[[
-        'ID',
-        'sourceFile',
-        'granularity',
-        'timestamp',
-        'takeProfit',
-        'stopLoss',
-        'profitLossOnClose',
-        'statsBuyingPosition',
-        'statsSellingPosition',
-        'statsHitTakeProfit',
-        'statsHitStopLoss',
-        'statsHitTakeProfitAndStopLoss',
-        'statsNumberOfPeriods',
-        'noActionTaken'
-    ]]
-
-    dfStats = dfStats.rename(columns={
-        'statsBuyingPosition': 'buyingPosition',
-        'statsSellingPosition': 'sellingPosition',
-        'statsHitTakeProfit': 'hitTakeProfit',
-        'statsHitStopLoss': 'hitStopLoss',
-        'statsHitTakeProfitAndStopLoss': 'hitTakeProfitAndStopLoss',
-        'statsNumberOfPeriods': 'numberOfPeriods'
-    })
-
-    # Keep only records where the position was closed (drop empty rows)
-    dfStats = dfStats[
-        (dfStats['profitLossOnClose'] < 999_999) |
-        (dfStats['noActionTaken'].astype(int) == 1)
-    ]
+    df = df.round({'pnlPips': 5})
+    df = df.round({'pnlPercent': 5})
 
     # </editor-fold>
 
     # <editor-fold desc=" ===== Cleanse df ================================ ">
 
-    df = df[[
-        'ID',
-        'instrument',
-        'granularity',
-        'timestamp',
-        'volume',
-        'open',
-        'high',
-        'low',
-        'close',
-        'complete',
-        'dateYYYYMMDD',
-        'timeHHMMSS',
-        'year',
-        'month',
-        'day',
-        'hour',
-        'minute',
-        'second',
-        'buyingSignal',
-        'sellingSignal',
-        'closingSignal',
+    listOfFields = defaultColumnsList + [
+        'pnlPips',
+        'pnlPercent',
         'buyingSignalText',
         'sellingSignalText',
-        'profitLossOnClose'
-    ]]
+        'signalLabel',
+        'statsNumberOfPeriods',
+        'statsBuyingPosition',
+        'statsSellingPosition',
+        'statsNoActionTaken',
+        'statsHitTakeProfit',
+        'statsHitStopLoss',
+        'statsHitTakeProfitAndStopLoss'
+    ]
 
-    print('Stats DF & cleanup')
-    print_time_lapsed()
+    df = df[listOfFields]
 
     # TODO [1] Performance: Drop useless fields and round numeric fields
     # </editor-fold>
 
     # <editor-fold desc=" ===== Export Output ============================= ">
 
-    df.to_csv(outputFile, index=False)
-    dfStats.to_csv(outputStatsFile, index=False)
-    print_time_lapsed(file_name=outputFile)
+    df.to_csv(outputBacktestFile, index=False)
+    # df.to_parquet('myFile.parquet.gzip', compression='gzip')
+    print_time_lapsed(file_name=outputBacktestFile)
 
     print('write out files')
     print_time_lapsed()
     # </editor-fold>
 
 print_time_lapsed(final=True)
+
+exit()
+
+"""
+# <editor-fold desc=" ===== Prepare Stats Fields ====================== ">
+# Generate the data frame dedicated to aggregated statistics
+dfStats = df[[
+    'ID',
+    'sourceFile',
+    'timestamp',
+    'takeProfit',
+    'stopLoss',
+    'pnlPips',
+    'pnlPercent',
+    'statsBuyingPosition',
+    'statsSellingPosition',
+    'statsHitTakeProfit',
+    'statsHitStopLoss',
+    'statsHitTakeProfitAndStopLoss',
+    'statsNumberOfPeriods',
+    'noActionTaken'
+]]
+
+dfStats = dfStats.rename(columns={
+    'statsBuyingPosition': 'buyingPosition',
+    'statsSellingPosition': 'sellingPosition',
+    'statsHitTakeProfit': 'hitTakeProfit',
+    'statsHitStopLoss': 'hitStopLoss',
+    'statsHitTakeProfitAndStopLoss': 'hitTakeProfitAndStopLoss',
+    'statsNumberOfPeriods': 'numberOfPeriods'
+})
+
+# Keep only records where the position was closed (drop empty rows)
+dfStats = dfStats[
+    (dfStats['pnlPips'] < 999_999) |
+    (dfStats['noActionTaken'].astype(int) == 1)
+    ]
+
+# </editor-fold>
+
+dfStats.to_csv(outputStatsFile, index=False)
+
+"""

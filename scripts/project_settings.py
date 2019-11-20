@@ -3,7 +3,39 @@ import datetime as dt
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
+# </editor-fold>
 
+# <editor-fold desc=" ===== Path variables ================================ ">
+strategyFolder = 'swing'
+
+projectPath = 'C:/Users/xau\OneDrive\GitHub\Trading-Predictions-Framework'
+# projectPath = '/Users/mbp13/OneDrive/GitHub/Trading-Predictions-Framework'
+# projectPath = '/Volumes/TPF_data'
+
+scriptsPath = Path(projectPath + '/scripts')
+
+dataRawExtracts = Path(
+    projectPath + '/data/raw_extracts'
+)
+dataStrategy = Path(
+    projectPath + '/data/strategy_raw/' + strategyFolder
+)
+dataStrategyBacktesting = Path(
+    projectPath + '/data/strategy_backtesting/' + strategyFolder
+)
+dataStrategyBacktestingStats = Path(
+    projectPath + '/data/strategy_backtesting_stats/' + strategyFolder
+)
+dataModelsRaw = Path(
+    projectPath + '/data/models_raw/' + strategyFolder
+)
+dataModelsBacktesting = Path(
+    projectPath + '/data/models_backtesting/' + strategyFolder
+)
+# </editor-fold>
+
+
+# <editor-fold desc=" ===== Default values ================================ ">
 # Start counting script reload time
 startTime = datetime.now()
 previousTime = startTime
@@ -11,80 +43,21 @@ previousTime = startTime
 # Define df for signalVariable and indicators scripts
 df = pd.DataFrame([])
 
-# </editor-fold>
-
-# <editor-fold desc=" ===== Extraction Settings =========================== ">
-'''----------------------------------------------------------------
-Variables defining the scope of data to extract
-Note that for now, you can only load granularity from H5
-This is due to the fact that the API call is restricted to 500 recs
-and the script is currently written to extract 1 day of data at a time
-(S5 to M2 will not load the complete data set)
-----------------------------------------------------------------'''
-
-# I am still looking for a way to extract the list of
-# instruments available on the platform
-instruments_load_list = ['GBP_USD', 'EUR_USD']
-
-# 'S5', 'S10', 'S15', 'S30', 'M1', 'M2', 'M5',
-# 'M10', 'M15', 'M30', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H8', 'H12', 'D',
-# 'W', 'M'
-granularity_load_list = [
-    'H1', 'M10'
+# Define default data frame structure
+defaultColumnsList = [
+    'ID',
+    'timestamp',
+    'volume',
+    'open',
+    'high',
+    'low',
+    'close',
+    'buyingSignal',
+    'sellingSignal',
+    'closingSignal',
+    'referencePriceHigher',
+    'referencePriceLower'
 ]
-
-# Date range - data is extracted 1 day at a time
-dateFrom = dt.date(2018, 1, 1)
-dateTo = dt.date(2018, 12, 31)
-# </editor-fold>
-
-# <editor-fold desc=" ===== backTestStrategy Settings ====================== ">
-
-# (
-#   'csv file name',
-#   (Take Profit Min value, Take Profit Max Value, Take Profit Step),
-#   (Stop Loss Min value, Stop Loss Max Value, Stop Loss Step)
-# )
-backtestStrategyFileList = [
-    ('GBP_USD_M10_20080101_20081231_50pipsADay_StratThld010', (10, 250, 10), (10, 100, 10))
-]
-
-# </editor-fold>
-
-# <editor-fold desc=" ===== Indicators Settings =========================== ">
-
-# Note: only input csv files here
-indicatorsFileList = [
-    'insertFileNameHere'
-]
-
-# List of EMA to calculate
-emaPeriods_list = [10, 20, 50, 100, 200, 400]
-
-# List of RSI to calculate
-rsiPeriods_List = [14]
-
-# Cartesian product to get list of ema crossover
-emaPeriodsCartesian_list = [
-    (emaPeriods_X1, emaPeriods_X2)
-    for emaPeriods_X1 in emaPeriods_list
-    for emaPeriods_X2 in emaPeriods_list if emaPeriods_X1 < emaPeriods_X2
-    ]
-
-# </editor-fold>
-
-# <editor-fold desc=" ===== Path variables ================================ ">
-projectPath = '/Users/mbp13/OneDrive/GitHub/Trading-Predictions-Framework'
-
-scriptsPath = Path(projectPath + '/scripts')
-
-dataRawExtracts = Path(projectPath + '/data/raw_extracts')
-dataStrategies = Path(projectPath + '/data/strategies')
-dataStrategyBacktesting = Path(projectPath + '/data/strategy_backtesting')
-# dataStrategyBacktestingStats = Path(projectPath + '/data/strategy_backtesting_stats')
-dataStrategyBacktestingStats = Path('/Volumes/TPF_data/strategy_backtesting_stats/50pipsADay_2008_2018_Thld002_Thld010')
-dataIndicators = Path(projectPath + '/data/indicators')
-dataModelBacktesting = Path(projectPath + '/data/model_backtesting')
 # </editor-fold>
 
 
@@ -152,9 +125,9 @@ def print_time_lapsed(file_name=False, final=False):
     # TODO [3] remove milliseconds in print_time_lapsed
     print(
         str(final_printed) +
-        str(file_name_printed) +
         str(datetime.now() - startTime) + ' (+ ' +
-        str(datetime.now() - previousTime) + ')'
+        str(datetime.now() - previousTime) + ') | ' +
+        str(file_name_printed)
     )
 
     previousTime = datetime.now()

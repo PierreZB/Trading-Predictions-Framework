@@ -10,8 +10,7 @@ pd.set_option('display.max_rows', 2500)
 # List of files on which you want to apply this strategy
 # high Time Frame first, then Low Time Frame
 strategyFileList = [
-    ('GBP_USD_H1_20190101_20191015', 'GBP_USD_M10_20190101_20191015'),
-    ('EUR_USD_H1_20190101_20191015', 'EUR_USD_M10_20190101_20191015')
+    ('EURUSD_H1_20050101_20191026', 'EURUSD_M15_20050101_20191026')
 ]
 
 # Pips threshold beyond reference candle high/low
@@ -37,7 +36,7 @@ for strategyFile in strategyFileList:
     )
 
     outputFile = (
-            str(dataStrategies) + "/" +
+            str(dataStrategy) + "/" +
             str(lowTimeFrameFile) +
             str('_50pipsADay') +
             str('_StratThld') + str(str(pipsThreshold).zfill(3)) +
@@ -52,7 +51,7 @@ for strategyFile in strategyFileList:
     # Convert timestamp from UTC to Europe/London
     dfHighTimeFrame['timestamp'] = pd.to_datetime(
         pd.Series(dfHighTimeFrame['timestamp']), format="%Y-%m-%dT%H:%M:%S"
-    ).dt.tz_localize('UTC')
+    )
 
     dfHighTimeFrame['timestamp'] = dfHighTimeFrame['timestamp'].\
         dt.tz_convert('Europe/London')
@@ -64,7 +63,7 @@ for strategyFile in strategyFileList:
     # Convert timestamp from UTC to Europe/London
     dfLowTimeFrame['timestamp'] = pd.to_datetime(
         pd.Series(dfLowTimeFrame['timestamp']), format="%Y-%m-%dT%H:%M:%S"
-    ).dt.tz_localize('UTC')
+    )
     dfLowTimeFrame['timestamp'] = dfLowTimeFrame['timestamp'].\
         dt.tz_convert('Europe/London')
 
@@ -288,38 +287,15 @@ for strategyFile in strategyFileList:
 
     # </editor-fold>
 
-    df = df[[
-        'ID',
-        'instrument',
-        'granularity',
-        'timestamp',
-        'volume',
-        'open',
-        'high',
-        'low',
-        'close',
-        'complete',
-        'dateYYYYMMDD',
-        'timeHHMMSS',
-        'year',
-        'month',
-        'day',
-        'hour',
-        'minute',
-        'second',
-        'buyingSignal',
-        'sellingSignal',
-        'closingSignal',
-        'referencePriceHigher',
-        'referencePriceLower'
-    ]]
-
     # Convert timestamp back to UTC (from Europe/London)
     df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
     df['timestamp'] = pd.to_datetime(
         pd.Series(df['timestamp']),
-        format="%Y-%m-%dT%H:%M:%S.000000000Z"
+        format="%Y-%m-%dT%H:%M:%S"
     )
+
+    # Keep only default fields
+    df = df[defaultColumnsList]
 
     df.to_csv(outputFile, index=False)
     print_time_lapsed(file_name=outputFile)

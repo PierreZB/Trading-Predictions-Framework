@@ -1,49 +1,35 @@
 LET vExternalDrive = 1;
 
-//LET vInputFileName = 'EUR_USD_M10_20190101_20191015_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20180101_20181231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20170101_20171231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20160101_20161231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20150101_20151231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20140101_20141231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20130101_20131231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20120101_20121231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20110101_20111231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20100101_20101231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20090101_20091231_50pipsADay_StratThld010';
-//LET vInputFileName = 'EUR_USD_M10_20080101_20081231_50pipsADay_StratThld010';
+LET vOutputContainer = 'rsi-014-080-020';
 
-//LET vInputFileName = 'EUR_USD_M10_20190101_20191015_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20180101_20181231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20170101_20171231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20160101_20161231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20150101_20151231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20140101_20141231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20130101_20131231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20120101_20121231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20110101_20111231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20100101_20101231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20090101_20091231_50pipsADay_StratThld002';
-//LET vInputFileName = 'EUR_USD_M10_20080101_20081231_50pipsADay_StratThld002';
+LET vInputFileName = 'EUR_USD_M10_20190101_20191015_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20180101_20181231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20170101_20171231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20160101_20161231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20150101_20151231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20140101_20141231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20130101_20131231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20120101_20121231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20110101_20111231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20100101_20101231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20090101_20091231_simpleStratRSI_014-080-020';
+//LET vInputFileName = 'EUR_USD_M10_20080101_20081231_simpleStratRSI_014-080-020';
 
 
-LET vMainPath = if(vExternalDrive = 1
-    ,'Z:\Volumes\TPF_data\'
-    ,'Z:\Users\mbp13\OneDrive\GitHub\Trading-Predictions-Framework\data\'
-);
+LET vMainPath = if(vExternalDrive = 1 ,'TPF_data\', 'data\');
 
 LET vInputPath = vMainPath & 'strategies\';
-LET vOutputBacktestPath = vMainPath & 'strategy_backtesting\50pipsADay_2008_2018_Thld002_Thld010\';
-LET vOutputStatsPath = vMainPath & 'strategy_backtesting_stats\50pipsADay_2008_2018_Thld002_Thld010\';
+LET vOutputBacktestPath = vMainPath & 'strategy_backtesting\' & vOutputContainer & '\';
+LET vOutputStatsPath = vMainPath & 'strategy_backtesting_stats\' & vOutputContainer & '\';
 
 //*
-LET vTakeProfitFrom = 10;
-LET vTakeProfitTo = 200;
-LET vTakeProfitStep = 10;
+LET vTakeProfitFrom = 30;
+LET vTakeProfitTo = 30;
+LET vTakeProfitStep = 1;
 
-LET vStopLossFrom = 10;
-LET vStopLossTo = 70;
-LET vStopLossStep = 10;
+LET vStopLossFrom = 15;
+LET vStopLossTo = 15;
+LET vStopLossStep = 1;
 //*/
 
 TakeProfitValuesList:
@@ -89,7 +75,7 @@ Mapping
 LOAD
     situationCode,
     actionCode
-FROM [Z:\Users\mbp13\OneDrive\GitHub\Trading-Predictions-Framework\scripts\backtestStrategy.xls] (biff, embedded labels, table is Actions$);
+FROM [scripts\backtestStrategy.xls] (biff, embedded labels, table is Actions$);
 
 tmpMAP:
 LOAD
@@ -100,7 +86,7 @@ LOAD
     @10 as J,
     @11 as K,
     @12 as L
-FROM [Z:\Users\mbp13\OneDrive\GitHub\Trading-Predictions-Framework\scripts\backtestStrategy.xls] (biff, no labels, header is 1 lines, table is ActionsMap$);
+FROM [scripts\backtestStrategy.xls] (biff, no labels, header is 1 lines, table is ActionsMap$);
 
 
 /*
