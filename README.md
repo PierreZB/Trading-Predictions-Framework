@@ -31,7 +31,7 @@ Main process flow:
 	* dask-ml 1.1.1
 	* …
 
-## Softwares you may need
+## Software you may need
 * Orange (data mining; can be installed with Anaconda)
 * Knime (data mining)
 * Tableau (BI/Visualisation)
@@ -76,11 +76,11 @@ Open "scripts\extractionOanda.py" and update the following variables to suit you
 Note:
 * A list of all available instruments will be provided in an upcoming update
 
-## List of different granularities you want to extract
+## List of different granularity you want to extract
 `granularity_load_list`
 
 Notes:
-* As of now, there’s a limitation to the list of granularities that can be extracted because of the metrology used and the maximum number of records that can be pulled from Oanda at once with a free account.
+* As of now, there’s a limitation to the list of granularity that can be extracted because of the methodology used and the maximum number of records that can be pulled from Oanda at once with a free account.
 * Currently you cannot load a granularity below M10 (10 minutes).
 
 ## Date range you want to extract
@@ -143,7 +143,7 @@ By default these fields have been generated containing only “0” in the extra
 It is therefore critical that your strategy updates them according to your needs.
 They will all be used for the backtesting process.
 
-The 3 first fields, should be booolean “0” or “1”
+The 3 first fields, should be boolean “0” or “1”
 ```
     'buyingSignal',
     'sellingSignal',
@@ -187,7 +187,7 @@ These behaviours can be defined in the excel spreadsheet “backtestStrategy.xls
 
 Now that this is done, open the "scripts\backtestStrategy.py" file.
 
-By default, this file backtests all strategy outputs in the strategy folder you are currently using, unless you comment out the section to define the files list manually.
+By default, this file back tests all strategy outputs in the strategy folder you are currently using, unless you comment out the section to define the files list manually.
 
 If you go with the default, update the following variables
 ```
@@ -241,12 +241,28 @@ Now that you have produced your backtest files, you might want to compare their 
 
 Notes:
 * As of now, the backtest process is slow as it loops through the records of a pandas data frame, and I haven’t found a faster way to reach this result.
-* I have have written the backtest logic in python (backtestStrategy.py) and qlikview (backtestStrategy.qvs) and the qlikview file is much faster. However, some differences might still exist between those 2 processes, the python file is the most up to date.
+* I have have written the backtest logic in python (backtestStrategy.py) and QlikView (backtestStrategy.qvs) and the QlikView file is much faster. However, some differences might still exist between those 2 processes, the python file is the most up to date.
 
 
 # Technical indicators
+## Automated process
+
 Before heading for predictions, you may want to create variables that will help the machine learning algorithm to take decisions.
 
+The "scripts\quickModelling.py" will help you in this process; with this script, you can choose amongst other things 
+* which file (from the "data\strategy_backtesting" folder) you want to process
+* how many variables you want to use (you can specify up to 3 levels of correlation you are ready to accept for these variables)
+* what type of target you want to test (swing buy/sell signals, sell/hold/buy signals, buy/close only signals, sell/close only signals)
+
+The script will generate a list of technical indicators, keep only the most relevant ones and feed a neural network with to them to make predictions.
+The predictions will be made on the latest dates from your source data set so you can get a rough idea of the accuracy you can expect for your future production predictions.
+The predictions scoring will be printed at the end opf the script. 
+
+The output of this file will be another csv with ID, timestamp, target and all the indicators selected by the script, and will be stored in "data\models_raw\{mymodelsRawFile}". 
+
+Keep in mind that the score displayed with this script isn't optimised and could obviously get much better. The purpose here is to give a general idea of the quality of the input data and how it can help and algorithm to classify the targets.
+
+## Manual process
 In "models\{myStrategyIndicators}" you can create a python file which purpose will be to generate those variables, create a new `target` field which will be the target your machine learning algorithm will try to reach, and output this file into "data\models_raw\{mymodelsRawFile}"
 
 In my scripts I have chosen to use the “ta” python package to automatically calculate a bunch of technical indicators.
@@ -256,17 +272,17 @@ I also define the `target` field in two different ways depending on my needs:
 * you can obviously choose to generate the `target` field as you wish (for instance a binary target with only buying and closing buy signals…)
 
 # Predictions
-To make predictions, I used 3 differents tools:
+To make predictions, I used 3 different tools:
 * Knime
 * Orange
 * TPOT
 
-First, I load the "data\models_raw\{mymodelsRawFile}" created previously in Knime, and analyse the correlations between my target field and all of the other variables.
+First, I load the "data\models_raw\{myModelsRawFile}" created previously in Knime, and analyse the correlations between my target field and all of the other variables.
 
 Usually, if none of the variables has an absolute correlation with the target greater than 50%, I go back to the strategy process as the predictions will very probably be poor.
 
 Then, I open Orange, and use the “prediction_template.ows” workflow to do a quick predictions test:
-* load the file "data\models_raw\{mymodelsRawFile}"
+* load the file "data\models_raw\{myModelsRawFile}"
 	* ID -> Text
 	* timestamp -> Date
 	* target -> Categorical
@@ -296,7 +312,7 @@ So I create a Jupyter notebook under "models\{myJupyterNotebook}" and run it in 
 # Trading Predictions Framework (TPF)
 
 This project's goal is to set-up a framework to be able to
-- pull trading data for different instruments at different granularities
+- pull trading data for different instruments at different granularity
 - calculate a set of indicators
 - join entry and exit strategies
 - apply machine learning on the data set to get predictions, based on the indicators and the strategy

@@ -2,9 +2,10 @@
 **.idea**
 **[archives]**
 **[notes]**
-*private*
-*.pyc
-*.qvw*
+**private**
+**.pyc
+**.qvw
 #*.xls*
-*\data*
-*dask-worker-space*
+**\data**
+**dask-worker-space**
+**TPOT_caching**

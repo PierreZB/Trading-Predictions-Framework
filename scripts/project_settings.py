@@ -6,7 +6,7 @@ from pathlib import Path
 # </editor-fold>
 
 # <editor-fold desc=" ===== Path variables ================================ ">
-strategyFolder = 'swing'
+strategyFolder = 'macdRsi'
 
 projectPath = 'C:/Users/xau\OneDrive\GitHub\Trading-Predictions-Framework'
 # projectPath = '/Users/mbp13/OneDrive/GitHub/Trading-Predictions-Framework'

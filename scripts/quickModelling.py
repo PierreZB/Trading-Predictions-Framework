@@ -4,20 +4,41 @@ from ta import *
 from datetime import datetime
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import QuantileTransformer
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import confusion_matrix, classification_report
 
 # Change pandas display options to show full tables
 pd.set_option('display.expand_frame_repr', False)
 pd.set_option('display.max_rows', 25)
 # </editor-fold>
 
-# <editor-fold desc=" ===== Load data ===================================== ">
-targetType = 'binary'
+# <editor-fold desc=" ===== Parameters ==================================== ">
+# Type of target (buySell, sellHoldBuy, buyOnly, sellOnly)
+targetType = 'buySell'
 
+# Number of variables allowed for each level of correlation
+# correlLevel = (MaxCorrelRange, MinCorrelRange, MaxNumberOfVariablesAllowed)
+correlLevel1 = (1.00, 0.85, 7)
+correlLevel2 = (0.85, 0.75, 5)
+correlLevel3 = (0.75, 0.50, 3)
+
+# training data set will represent x% of the original data set
+# note: the first x% rows will be used for training and the rest for testing
+# this is NOT a random selection
+trainingDataSet = 0.9
+
+# When running tests I recommended to limit the number of rows in the data set
+# set to 0 to load all rows
+rowsLimit = 0  # 10_000
+
+# list of files to process
 strategyBacktestingFileList = [
-    'EURUSD_H1_20050101_20191026_macdRsiV02_0001-0012-0026-0009-00140005-0002-0001-0001_TP99999_SL99999'
+    'EURUSD_H1_20050101_20191026_macdRsiV01_0001-0036-0078-0027-0042_TP99999_SL99999'
 ]
+# </editor-fold>
 
-
+# <editor-fold desc=" ===== Load data ===================================== ">
 for strategyBacktestingFile in strategyBacktestingFileList:
 
     # Define file paths
@@ -46,6 +67,10 @@ for strategyBacktestingFile in strategyBacktestingFileList:
         'low': 5,
         'close': 5
     })
+
+    if rowsLimit != 0:
+        df = df.head(rowsLimit)
+
     # </editor-fold>
 
     # <editor-fold desc=" ===== Cleanse data ============================== ">
@@ -66,11 +91,11 @@ for strategyBacktestingFile in strategyBacktestingFileList:
 
     # <editor-fold desc=" ===== Transform data ============================ ">
 
-    if targetType == 'binary':
+    if targetType == 'buySell':
         # Convert signalLabel labels to binary 0/1 values
         df['target'] = (df['signalLabel'].values == 'openBuy').astype(np.uint8)
-    elif targetType == 'true3':
-        # Keep all 3 positions: buy (2), sell (0), hold (1)
+    elif targetType == 'sellHoldBuy':
+        # Keep all 3 positions: sell (0), hold (1), buy (2)
         df['target'] = 1
 
         df['target'] = np.where(
@@ -90,6 +115,36 @@ for strategyBacktestingFile in strategyBacktestingFileList:
             0,
             df['target']
         )
+    elif targetType == 'buyOnly':
+        # Keep buying related signals only: close (0), hold (1), open (2)
+        df['target'] = 1
+
+        df['target'] = np.where(
+            (df['buyingSignalText'] == 'closeBuy'),
+            0,
+            df['target']
+        )
+
+        df['target'] = np.where(
+            (df['buyingSignalText'] == 'openBuy'),
+            2,
+            df['target']
+        )
+    elif targetType == 'sellOnly':
+        # Keep selling related signals only: close (0), hold (1), open (2)
+        df['target'] = 1
+
+        df['target'] = np.where(
+            (df['sellingSignalText'] == 'closeSell'),
+            0,
+            df['target']
+        )
+
+        df['target'] = np.where(
+            (df['sellingSignalText'] == 'openSell'),
+            2,
+            df['target']
+        )
 
     # Drop columns which are useless for this case study
     df = df.drop([
@@ -104,9 +159,9 @@ for strategyBacktestingFile in strategyBacktestingFileList:
 
     # re-arrange columns so that
     # 1st = ID, 2nd = timestamp, 3rd = target, others = metrics
-    cols = list(df)
-    cols.insert(2, cols.pop(cols.index('target')))
-    df = df.loc[:, cols]
+    coreColumns = list(df)
+    coreColumns.insert(2, coreColumns.pop(coreColumns.index('target')))
+    df = df.loc[:, coreColumns]
 
     # Generate indicators
     # Time indicators
@@ -119,28 +174,8 @@ for strategyBacktestingFile in strategyBacktestingFileList:
 
     print_time_lapsed(file_name='Data loaded and prepared')
 
-    # =========================== Price evolution ===========================
-    priceDeltaValues = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 20, 24, 36, 48, 72, 96
-    ]
-    for index, A in enumerate(priceDeltaValues):
-        dfPriceDelta_A = 'priceDelta' + str(A).zfill(3)
-        df[dfPriceDelta_A] = df['close'].shift(-A) / df['close'] - 1
-        # df[dfPriceDelta_A] = 0
-        # df[dfPriceDelta_A] = np.where(
-        #    (df['close'].shift(-A) / df['close'] - 1) > 0.0004,
-        #     1,
-        #     df[dfPriceDelta_A]
-        # )
-        # df[dfPriceDelta_A] = np.where(
-        #     (df['close'].shift(-A) / df['close'] - 1) < -0.0004,
-        #     -1,
-        #     df[dfPriceDelta_A]
-        # )
-    print_time_lapsed(file_name='priceDelta')
-
-    # ============================ Add indicators ============================
-    # """
+    # ========================== Add all indicators ==========================
+    """
     # add all ta indicators
     df = add_all_ta_features(
         df, "open", "high", "low", "close", "volume", fillna=True
@@ -149,24 +184,25 @@ for strategyBacktestingFile in strategyBacktestingFileList:
 
     # Define time frames list for indicators loops below
     timeFramesList = [
-        3, 6, 14, 24, 36, 48, 78, 100, 150, 200, 300, 400
+        3, 6, 14, 20, 24, 30, 36, 40, 48, 60, 66, 78, 90,
+        100, 150, 200, 250, 300, 350, 400, 450, 500, 600
     ]
 
     # ====================== ADX ======================
     # ADXValues = [6, 7, 8]
     ADXValues = timeFramesList
     for index, A in enumerate(ADXValues):
-        # dfADX_A = 'adx' + '_' + str(A).zfill(3)
+        # dfADX_A = 'adx' + '|' + str(A).zfill(3)
         # df[dfADX_A] = adx(
         #     df['high'], df['low'], df['close'], n=A, fillna=False
         # )
 
-        dfADXPOS_A = 'adx_pos' + '_' + str(A).zfill(3)
+        dfADXPOS_A = 'adx_pos' + '|' + str(A).zfill(3)
         df[dfADXPOS_A] = adx_pos(
             df['high'], df['low'], df['close'], n=A, fillna=False
         )
 
-        dfADXNEG_A = 'adx_neg' + '_' + str(A).zfill(3)
+        dfADXNEG_A = 'adx_neg' + '|' + str(A).zfill(3)
         df[dfADXNEG_A] = adx_neg(
             df['high'], df['low'], df['close'], n=A, fillna=False
         )
@@ -176,13 +212,13 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # AroonValues = [6, 12, 14, 20]
     AroonValues = timeFramesList
     for index, A in enumerate(AroonValues):
-        dfAroonUp_A = 'aroon_up' + '_' + str(A).zfill(3)
+        dfAroonUp_A = 'aroon_up' + '|' + str(A).zfill(3)
         df[dfAroonUp_A] = aroon_up(df['close'], n=A, fillna=False)
 
-        dfAroonDown_A = 'aroon_down' + '_' + str(A).zfill(3)
+        dfAroonDown_A = 'aroon_down' + '|' + str(A).zfill(3)
         df[dfAroonDown_A] = aroon_down(df['close'], n=A, fillna=False)
 
-        dfAroonInd_A = 'aroon_ind' + '_' + str(A).zfill(3)
+        dfAroonInd_A = 'aroon_ind' + '|' + str(A).zfill(3)
         df[dfAroonInd_A] = df[dfAroonUp_A] - df[dfAroonDown_A]
     print_time_lapsed(file_name='AROON')
 
@@ -190,17 +226,17 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # closeEMAValues = [12, 14, 20]
     closeEMAValues = timeFramesList
     for index, A in enumerate(closeEMAValues):
-        dfCloseEMA_A = 'close_ema' + '_' + str(A).zfill(3)
+        dfCloseEMA_A = 'close_ema' + '|' + str(A).zfill(3)
         df[dfCloseEMA_A] = (
                 df['close'] / ema_indicator(df['close'], n=A, fillna=False)
         )
     print_time_lapsed(file_name='CLOSE/EMA')
 
     # ====================== CMF ======================
-    CMFValues = [6, 12, 14, 20]
+    # CMFValues = [6, 12, 14, 20]
     CMFValues = timeFramesList
     for index, A in enumerate(CMFValues):
-        dfCMF_A = 'cmf' + '_' + str(A).zfill(3)
+        dfCMF_A = 'cmf' + '|' + str(A).zfill(3)
         df[dfCMF_A] = chaikin_money_flow(
             df['high'], df['low'], df['close'], df['volume'], n=A, fillna=False
         )
@@ -213,20 +249,20 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     for index, MACD_A_B in enumerate(MACD_cartesian_product):
         A, B = MACD_A_B
         if A < B:
-            dfMACD_A_B = 'macd' + '_' + str(A).zfill(3) + '_' + str(B).zfill(3)
+            dfMACD_A_B = 'macd' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
             df[dfMACD_A_B] = macd(
                 df['close'], n_fast=A, n_slow=B, fillna=False
             )
 
             dfMACDSIGN_A_B = (
-                    'macd_sign' + '_' + str(A).zfill(3) + '_' + str(B).zfill(3)
+                    'macd_sign' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
             )
             df[dfMACDSIGN_A_B] = macd_signal(
                 df['close'], n_fast=A, n_slow=B, fillna=False
             )
 
             dfMACDDIFF_A_B = (
-                    'macd_diff' + '_' + str(A).zfill(3) + '_' + str(B).zfill(3)
+                    'macd_diff' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
             )
             df[dfMACDDIFF_A_B] = macd_diff(
                 df['close'], n_fast=A, n_slow=B, fillna=False
@@ -237,7 +273,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # MFIValues = [6, 14, 20]
     MFIValues = timeFramesList
     for index, A in enumerate(MFIValues):
-        dfMFI_A = 'mfi' + '_' + str(A).zfill(3)
+        dfMFI_A = 'mfi' + '|' + str(A).zfill(3)
         df[dfMFI_A] = money_flow_index(
             df['high'], df['low'], df['close'], df['volume'], n=A, fillna=False
         )
@@ -250,7 +286,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     AO_cartesian_product = [(a, b) for a in AOValuesA for b in AOValuesB]
     for index, AO_A_B in enumerate(AO_cartesian_product):
         A, B = AO_A_B
-        dfAO_A_B = 'ao' + '_' + str(A).zfill(3) + '_' + str(B).zfill(3)
+        dfAO_A_B = 'ao' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
         df[dfAO_A_B] = ao(
             df['high'], df['low'], s=A, len=B, fillna=False
         )
@@ -260,7 +296,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # RSIValues = [3, 6, 14]
     RSIValues = timeFramesList
     for index, A in enumerate(RSIValues):
-        dfRSI_A = 'rsi' + '_' + str(A).zfill(3)
+        dfRSI_A = 'rsi' + '|' + str(A).zfill(3)
         df[dfRSI_A] = rsi(df['close'], n=A, fillna=False)
     print_time_lapsed(file_name='RSI')
 
@@ -268,7 +304,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # STOCHValues = [14, 24, 36]
     STOCHValues = timeFramesList
     for index, A in enumerate(STOCHValues):
-        dfSTOCH_A = 'stoch' + '_' + str(A).zfill(3)
+        dfSTOCH_A = 'stoch' + '|' + str(A).zfill(3)
         df[dfSTOCH_A] = stoch(
             df['high'], df['low'], df['close'], n=A, fillna=False
         )
@@ -282,7 +318,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     for index, STOCHS_A_B in enumerate(STOCHS_cartesian_product):
         A, B = STOCHS_A_B
         dfSTOCHS_A_B = (
-                'stoch_signal' + '_' + str(A).zfill(3) + '_' + str(B).zfill(3)
+                'stoch_signal' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
         )
         df[dfSTOCHS_A_B] = stoch_signal(
             df['high'], df['low'], df['close'], n=A, d_n=B, fillna=False
@@ -296,7 +332,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     TSI_cartesian_product = [(a, b) for a in TSIValuesA for b in TSIValuesB]
     for index, TSI_A_B in enumerate(TSI_cartesian_product):
         A, B = TSI_A_B
-        dfTSI_A_B = 'tsi' + '_' + str(A).zfill(3)
+        dfTSI_A_B = 'tsi' + '|' + str(A).zfill(3)
         df[dfTSI_A_B] = tsi(df['close'], r=A, s=B, fillna=False)
     print_time_lapsed(file_name='TSI')
 
@@ -305,7 +341,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     for index, UO_A_B_C in enumerate(UOTuples):
         A, B, C = UO_A_B_C
         dfUO_A_B_C = (
-                'uo' + '_' +
+                'uo' + '|' +
                 str(A).zfill(3) + '_' + str(B).zfill(3) + '_' + str(C).zfill(3)
         )
         df[dfUO_A_B_C] = uo(
@@ -319,7 +355,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # WRValues = [14, 24, 36]
     WRValues = timeFramesList
     for index, A in enumerate(WRValues):
-        dfWR_A = 'wr' + '_' + str(A).zfill(3)
+        dfWR_A = 'wr' + '|' + str(A).zfill(3)
         df[dfWR_A] = wr(
             df['high'], df['low'], df['close'], lbp=A, fillna=False
         )
@@ -329,7 +365,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # CCIValues = [14, 20, 24, 36, 48]
     CCIValues = timeFramesList
     for index, A in enumerate(CCIValues):
-        dfCCI_A = 'cci' + '_' + str(A).zfill(3)
+        dfCCI_A = 'cci' + '|' + str(A).zfill(3)
         df[dfCCI_A] = cci(
             df['high'], df['low'], df['close'], n=A, c=0.015, fillna=False
         )
@@ -339,7 +375,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # DPOValues = [20]
     DPOValues = timeFramesList
     for index, A in enumerate(DPOValues):
-        dfDPO_A = 'dpo' + '_' + str(A).zfill(3)
+        dfDPO_A = 'dpo' + '|' + str(A).zfill(3)
         df[dfDPO_A] = dpo(df['close'], n=A, fillna=False)
     print_time_lapsed(file_name='DPO')
 
@@ -347,11 +383,11 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # VRTXValues = [6, 14, 20]
     VRTXValues = timeFramesList
     for index, A in enumerate(VRTXValues):
-        dfVRTXPOS_A = 'vortex_ind_pos' + '_' + str(A).zfill(3)
+        dfVRTXPOS_A = 'vortex_ind_pos' + '|' + str(A).zfill(3)
         df[dfVRTXPOS_A] = vortex_indicator_pos(
             df['high'], df['low'], df['close'], n=A, fillna=False
         )
-        dfVRTXNEG_A = 'vortex_ind_neg' + '_' + str(A).zfill(3)
+        dfVRTXNEG_A = 'vortex_ind_neg' + '|' + str(A).zfill(3)
         df[dfVRTXNEG_A] = vortex_indicator_neg(
             df['high'], df['low'], df['close'], n=A, fillna=False
         )
@@ -361,7 +397,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # TRIXValues = [3, 4, 6]
     TRIXValues = timeFramesList
     for index, A in enumerate(TRIXValues):
-        dfTRIX_A = 'trix' + '_' + str(A).zfill(3)
+        dfTRIX_A = 'trix' + '|' + str(A).zfill(3)
         df[dfTRIX_A] = trix(df['close'], n=A, fillna=False)
     print_time_lapsed(file_name='TRIX')
 
@@ -373,14 +409,14 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     for index, BBI_A_B in enumerate(BBI_cartesian_product):
         A, B = BBI_A_B
         dfBBHI_A_B = (
-            'bollingerBHI' + '_' + str(A).zfill(3) + '_' + str(B).zfill(3)
+            'bollingerBHI' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
         )
         df[dfBBHI_A_B] = bollinger_hband_indicator(
             df['close'], n=A, ndev=B, fillna=False
         )
 
         dfBBLI_A_B = (
-            'bollingerBLI' + '_' + str(A).zfill(3) + '_' + str(B).zfill(3)
+            'bollingerBLI' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
         )
         df[dfBBLI_A_B] = bollinger_lband_indicator(
             df['close'], n=A, ndev=B, fillna=False
@@ -393,14 +429,14 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     for index, DCI_A in enumerate(DCIValues):
         A = DCI_A
         dfDCHI_A = (
-            'donchianCHI' + '_' + str(A).zfill(3)
+            'donchianCHI' + '|' + str(A).zfill(3)
         )
         df[dfDCHI_A] = donchian_channel_hband_indicator(
             df['close'], n=A, fillna=False
         )
 
         dfDCLI_A = (
-            'donchianCLI' + '_' + str(A).zfill(3)
+            'donchianCLI' + '|' + str(A).zfill(3)
         )
         df[dfDCLI_A] = donchian_channel_lband_indicator(
             df['close'], n=A, fillna=False
@@ -411,7 +447,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # EMAValues = [5, 12]
     EMAValues = timeFramesList
     for index, A in enumerate(EMAValues):
-        dfEMA_A = 'ema' + '_' + str(A).zfill(3)
+        dfEMA_A = 'ema' + '|' + str(A).zfill(3)
         df[dfEMA_A] = ema_indicator(df['close'], n=A, fillna=False)
     print_time_lapsed(file_name='EMA')
 
@@ -450,16 +486,133 @@ for strategyBacktestingFile in strategyBacktestingFileList:
          (df['signalLabel'] == 'openSell'))
     ]
 
-    df = df.drop(['signalLabel'], axis=1)
-
     # Remove records containing NaN and Reset Index
     df = df.dropna()
     df = df.reset_index(drop=True)
+    # </editor-fold>
 
-    # Export the data set for manual analysis in Orange3
+    # <editor-fold desc=" ===== Calculate Correlations ==================== ">
+
+    dfCorr = df.corrwith(df['target'])  # calculate correlation with target
+    dfCorr = dfCorr.drop('target')  # drop target vs target correlation row
+    dfCorr = dfCorr.abs()  # convert correlation to absolute values
+    dfCorr = dfCorr.to_frame().reset_index()  # convert series to data frame
+
+    # rename columns for clarity
+    dfCorr = dfCorr.rename(columns={"index": "variable", 0: "correlation"})
+
+    # In case of multiple versions of the same indicator,
+    # we will want to keep only the best one
+    dfCorrConcat = pd.DataFrame([])
+    corrLvlRanges = [(1.00, 0.85, 7), (0.85, 0.75, 5), (0.75, 0.50, 5)]
+    # corrLvlRanges = [(1, 0.9)]
+    for index, corrLvlRange in enumerate(corrLvlRanges):
+        corrRangeUp, corrRangeDown, corrHead = corrLvlRange
+
+        dfCorrTmp1 = dfCorr
+        dfCorrTmp1['indicatorGroup'] = (
+            dfCorr['variable'].apply(lambda st: st.rsplit("|", 1)[0])
+        )
+        dfCorrTmp1 = dfCorrTmp1[
+            (dfCorr['correlation'] < corrRangeUp) &
+            (dfCorr['correlation'] > corrRangeDown)
+        ]
+
+        dfCorrTmp2 = dfCorrTmp1[['correlation', 'indicatorGroup']]
+        dfCorrTmp2 = dfCorrTmp2.groupby('indicatorGroup').max()
+
+        dfCorrJoin = pd.merge(dfCorrTmp2, dfCorrTmp1, on='correlation')
+
+        # keep only x greatest correlation values
+        dfCorrJoin = (
+            dfCorrJoin
+            .sort_values(by=['correlation'], ascending=False)
+            .head(corrHead)
+        )
+
+        # Concatenate the output of each loop
+        dfCorrConcat = pd.concat(
+            [dfCorrConcat, dfCorrJoin],
+            ignore_index=True,
+            sort=False
+        )
+
+    print('\n' + 'Chosen variables + Correlation with target:' + '\n')
+    print(dfCorrConcat)
+
+    indicatorsColumns = dfCorrConcat['variable'].tolist()
+    dfKeepColumns = coreColumns + indicatorsColumns
+
+    del dfCorr, dfCorrConcat, corrLvlRanges
+
+    df = df[dfKeepColumns]
+    df = df.drop(['signalLabel'], axis=1)
+
+    print('\n')
+    print_time_lapsed(file_name='Data frame ready with best indicators')
+    # </editor-fold>
+
+    # <editor-fold desc=" ===== Export data =============================== ">
+
     df.to_csv(str(outputFile + '.csv'), index=False)
-    print_time_lapsed(file_name=outputFile)
+    print_time_lapsed(file_name='CSV saved: ' + outputFile)
 
+    # </editor-fold>
+
+    # <editor-fold desc=" ===== Clustering ================================ ">
+
+    # split variables and targets + remove fields that can't be pre-processed
+    dfData = df.drop(['ID', 'timestamp', 'target'], axis=1)
+    dfTarget = df[['target']]
+
+    # Pre-process variables and convert to numpy arrays
+    qt = QuantileTransformer()
+    data = qt.fit_transform(dfData)
+    target = dfTarget.values
+
+    # Get number of rows in df to split data set
+    rowsDf, colsDf = data.shape
+    trainRows = round(rowsDf * 0.9)
+    testRows = round(rowsDf - trainRows)
+
+    # Split into training and test data sets
+    X_train = data[:trainRows, :]
+    X_test = data[testRows:, :]
+    y_train = target[:trainRows, :]
+    y_test = target[testRows:, :]
+
+    y_train = y_train.ravel()
+    y_test = y_test.ravel()
+
+    # delete original df
+    del df, data, target
+
+    print_time_lapsed(file_name='Pre-process + data split')
+
+    # Neural Network training
+    nnMLPC = MLPClassifier(
+        hidden_layer_sizes=(50,),
+        activation='tanh',
+        solver='adam',
+        alpha=0.0001,
+        max_iter=400,
+
+    )
+    nnMLPC.fit(X_train, y_train)
+    predictionMLPC = nnMLPC.predict(X_test)
+
+    print('\n')
+    print_time_lapsed(file_name='Neural Network Fit & Predict')
+
+    # Check model's performance
+    print('\n' + 'Neural Network classification_report:' + '\n')
+    print(classification_report(y_test, predictionMLPC))
+
+    print('\n' + 'Neural Network confusion_matrix:' + '\n')
+    print(confusion_matrix(y_test, predictionMLPC))
+
+    print('\n')
+    print_time_lapsed(file_name='Neural Network Score')
     # </editor-fold>
 
 print_time_lapsed(final=True)
