@@ -247,6 +247,6 @@ for index, dateInstrGran in enumerate(extractList):
 
         df_rawConcat.to_csv(outputFile, index=False)
 
-        print_time_lapsed(file_name=outputFile)
+        print_time_lapsed(section=outputFile)
 
 print_time_lapsed(final=True)

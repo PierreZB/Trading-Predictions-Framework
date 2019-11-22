@@ -34,7 +34,7 @@ rowsLimit = 0  # 10_000
 
 # list of files to process
 strategyBacktestingFileList = [
-    'EURUSD_H1_20050101_20191026_macdRsiV01_0001-0036-0078-0027-0042_TP99999_SL99999'
+    'EURUSD_H1_20050101_20191026_emaCrossingV01_thld015-SL008-prd216-emaS020-emaL050shift001_TP99999_SL99999'
 ]
 # </editor-fold>
 
@@ -163,8 +163,11 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     coreColumns.insert(2, coreColumns.pop(coreColumns.index('target')))
     df = df.loc[:, coreColumns]
 
-    # Generate indicators
-    # Time indicators
+    # </editor-fold>
+
+    # <editor-fold desc=" ===== Add variables/indicators ================== ">
+
+    # ********************** Time indicators **********************
     df['year'] = pd.DatetimeIndex(df['timestamp']).year
     df['month'] = pd.DatetimeIndex(df['timestamp']).month
     df['week'] = pd.DatetimeIndex(df['timestamp']).week
@@ -172,9 +175,9 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     df['weekday'] = pd.DatetimeIndex(df['timestamp']).weekday
     df['hour'] = pd.DatetimeIndex(df['timestamp']).hour
 
-    print_time_lapsed(file_name='Data loaded and prepared')
+    print_time_lapsed(section='Data loaded and prepared')
 
-    # ========================== Add all indicators ==========================
+    # ********************** Add all ta indicators **********************
     """
     # add all ta indicators
     df = add_all_ta_features(
@@ -187,124 +190,57 @@ for strategyBacktestingFile in strategyBacktestingFileList:
         3, 6, 14, 20, 24, 30, 36, 40, 48, 60, 66, 78, 90,
         100, 150, 200, 250, 300, 350, 400, 450, 500, 600
     ]
-
-    # ====================== ADX ======================
-    # ADXValues = [6, 7, 8]
-    ADXValues = timeFramesList
-    for index, A in enumerate(ADXValues):
-        # dfADX_A = 'adx' + '|' + str(A).zfill(3)
-        # df[dfADX_A] = adx(
-        #     df['high'], df['low'], df['close'], n=A, fillna=False
-        # )
-
-        dfADXPOS_A = 'adx_pos' + '|' + str(A).zfill(3)
-        df[dfADXPOS_A] = adx_pos(
-            df['high'], df['low'], df['close'], n=A, fillna=False
-        )
-
-        dfADXNEG_A = 'adx_neg' + '|' + str(A).zfill(3)
-        df[dfADXNEG_A] = adx_neg(
-            df['high'], df['low'], df['close'], n=A, fillna=False
-        )
-    print_time_lapsed(file_name='ADX')
-
-    # ====================== AROON ======================
-    # AroonValues = [6, 12, 14, 20]
-    AroonValues = timeFramesList
-    for index, A in enumerate(AroonValues):
-        dfAroonUp_A = 'aroon_up' + '|' + str(A).zfill(3)
-        df[dfAroonUp_A] = aroon_up(df['close'], n=A, fillna=False)
-
-        dfAroonDown_A = 'aroon_down' + '|' + str(A).zfill(3)
-        df[dfAroonDown_A] = aroon_down(df['close'], n=A, fillna=False)
-
-        dfAroonInd_A = 'aroon_ind' + '|' + str(A).zfill(3)
-        df[dfAroonInd_A] = df[dfAroonUp_A] - df[dfAroonDown_A]
-    print_time_lapsed(file_name='AROON')
-
-    # ====================== CLOSE/EMA ======================
-    # closeEMAValues = [12, 14, 20]
-    closeEMAValues = timeFramesList
-    for index, A in enumerate(closeEMAValues):
-        dfCloseEMA_A = 'close_ema' + '|' + str(A).zfill(3)
-        df[dfCloseEMA_A] = (
-                df['close'] / ema_indicator(df['close'], n=A, fillna=False)
-        )
-    print_time_lapsed(file_name='CLOSE/EMA')
-
-    # ====================== CMF ======================
-    # CMFValues = [6, 12, 14, 20]
-    CMFValues = timeFramesList
-    for index, A in enumerate(CMFValues):
-        dfCMF_A = 'cmf' + '|' + str(A).zfill(3)
-        df[dfCMF_A] = chaikin_money_flow(
-            df['high'], df['low'], df['close'], df['volume'], n=A, fillna=False
-        )
-    print_time_lapsed(file_name='CMF')
-
-    # ====================== MACD ======================
-    # MACDValues = [3, 6, 12, 14, 20, 24, 36]
-    MACDValues = timeFramesList
-    MACD_cartesian_product = [(a, b) for a in MACDValues for b in MACDValues]
-    for index, MACD_A_B in enumerate(MACD_cartesian_product):
-        A, B = MACD_A_B
-        if A < B:
-            dfMACD_A_B = 'macd' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
-            df[dfMACD_A_B] = macd(
-                df['close'], n_fast=A, n_slow=B, fillna=False
-            )
-
-            dfMACDSIGN_A_B = (
-                    'macd_sign' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
-            )
-            df[dfMACDSIGN_A_B] = macd_signal(
-                df['close'], n_fast=A, n_slow=B, fillna=False
-            )
-
-            dfMACDDIFF_A_B = (
-                    'macd_diff' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
-            )
-            df[dfMACDDIFF_A_B] = macd_diff(
-                df['close'], n_fast=A, n_slow=B, fillna=False
-            )
-    print_time_lapsed(file_name='MACD')
-
-    # ====================== MFI ======================
-    # MFIValues = [6, 14, 20]
-    MFIValues = timeFramesList
-    for index, A in enumerate(MFIValues):
-        dfMFI_A = 'mfi' + '|' + str(A).zfill(3)
-        df[dfMFI_A] = money_flow_index(
-            df['high'], df['low'], df['close'], df['volume'], n=A, fillna=False
-        )
-    print_time_lapsed(file_name='MFI')
-
-    # ====================== AO ======================
-    AOValuesA = [3, 5]
-    # AOValuesB = [14, 20]
-    AOValuesB = timeFramesList
-    AO_cartesian_product = [(a, b) for a in AOValuesA for b in AOValuesB]
-    for index, AO_A_B in enumerate(AO_cartesian_product):
-        A, B = AO_A_B
-        dfAO_A_B = 'ao' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
-        df[dfAO_A_B] = ao(
-            df['high'], df['low'], s=A, len=B, fillna=False
-        )
-    print_time_lapsed(file_name='AO')
-
-    # ====================== RSI ======================
+    # """
+    # ********************** Momentum Indicators **********************
+    # ====================== Momentum - RSI ======================
     # RSIValues = [3, 6, 14]
     RSIValues = timeFramesList
     for index, A in enumerate(RSIValues):
-        dfRSI_A = 'rsi' + '|' + str(A).zfill(3)
+        dfRSI_A = 'momentum_rsi' + '|' + str(A).zfill(3)
         df[dfRSI_A] = rsi(df['close'], n=A, fillna=False)
-    print_time_lapsed(file_name='RSI')
+    print_time_lapsed(section='RSI')
 
-    # ====================== STOCH ======================
+    # ====================== Momentum - MFI ======================
+    # MFIValues = [6, 14, 20]
+    MFIValues = timeFramesList
+    for index, A in enumerate(MFIValues):
+        dfMFI_A = 'momentum_mfi' + '|' + str(A).zfill(3)
+        df[dfMFI_A] = money_flow_index(
+            df['high'], df['low'], df['close'], df['volume'], n=A, fillna=False
+        )
+    print_time_lapsed(section='MFI')
+
+    # ====================== Momentum - TSI ======================
+    # TSIValuesA = [25]
+    TSIValuesA = timeFramesList
+    TSIValuesB = [13]
+    TSI_cartesian_product = [(a, b) for a in TSIValuesA for b in TSIValuesB]
+    for index, TSI_A_B in enumerate(TSI_cartesian_product):
+        A, B = TSI_A_B
+        dfTSI_A_B = 'momentum_tsi' + '|' + str(A).zfill(3)
+        df[dfTSI_A_B] = tsi(df['close'], r=A, s=B, fillna=False)
+    print_time_lapsed(section='TSI')
+
+    # ====================== Momentum - UO ======================
+    UOTuples = [(7, 14, 28), (14, 28, 56), (28, 56, 112)]
+    for index, UO_A_B_C in enumerate(UOTuples):
+        A, B, C = UO_A_B_C
+        dfUO_A_B_C = (
+                'momentum_uo' + '|' +
+                str(A).zfill(3) + '_' + str(B).zfill(3) + '_' + str(C).zfill(3)
+        )
+        df[dfUO_A_B_C] = uo(
+            df['high'], df['low'], df['close'],
+            s=A, m=B, len=C, ws=4.0, wm=2.0, wl=1.0,
+            fillna=False
+        )
+    print_time_lapsed(section='UO')
+
+    # ====================== Momentum - STOCH ======================
     # STOCHValues = [14, 24, 36]
     STOCHValues = timeFramesList
     for index, A in enumerate(STOCHValues):
-        dfSTOCH_A = 'stoch' + '|' + str(A).zfill(3)
+        dfSTOCH_A = 'momentum_stoch' + '|' + str(A).zfill(3)
         df[dfSTOCH_A] = stoch(
             df['high'], df['low'], df['close'], n=A, fillna=False
         )
@@ -318,140 +254,178 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     for index, STOCHS_A_B in enumerate(STOCHS_cartesian_product):
         A, B = STOCHS_A_B
         dfSTOCHS_A_B = (
-                'stoch_signal' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
+                'momentum_stoch_signal' + '|' +
+                str(A).zfill(3) + '_' + str(B).zfill(3)
         )
         df[dfSTOCHS_A_B] = stoch_signal(
             df['high'], df['low'], df['close'], n=A, d_n=B, fillna=False
         )
-    print_time_lapsed(file_name='STOCH')
+    print_time_lapsed(section='STOCH')
 
-    # ====================== TSI ======================
-    # TSIValuesA = [25]
-    TSIValuesA = timeFramesList
-    TSIValuesB = [13]
-    TSI_cartesian_product = [(a, b) for a in TSIValuesA for b in TSIValuesB]
-    for index, TSI_A_B in enumerate(TSI_cartesian_product):
-        A, B = TSI_A_B
-        dfTSI_A_B = 'tsi' + '|' + str(A).zfill(3)
-        df[dfTSI_A_B] = tsi(df['close'], r=A, s=B, fillna=False)
-    print_time_lapsed(file_name='TSI')
-
-    # ====================== UO ======================
-    UOTuples = [(7, 14, 28), (14, 28, 56), (28, 56, 112)]
-    for index, UO_A_B_C in enumerate(UOTuples):
-        A, B, C = UO_A_B_C
-        dfUO_A_B_C = (
-                'uo' + '|' +
-                str(A).zfill(3) + '_' + str(B).zfill(3) + '_' + str(C).zfill(3)
-        )
-        df[dfUO_A_B_C] = uo(
-            df['high'], df['low'], df['close'],
-            s=A, m=B, len=C, ws=4.0, wm=2.0, wl=1.0,
-            fillna=False
-        )
-    print_time_lapsed(file_name='UO')
-
-    # ====================== WR ======================
+    # ====================== Momentum - WR ======================
     # WRValues = [14, 24, 36]
     WRValues = timeFramesList
     for index, A in enumerate(WRValues):
-        dfWR_A = 'wr' + '|' + str(A).zfill(3)
+        dfWR_A = 'momentum_wr' + '|' + str(A).zfill(3)
         df[dfWR_A] = wr(
             df['high'], df['low'], df['close'], lbp=A, fillna=False
         )
-    print_time_lapsed(file_name='WR')
+    print_time_lapsed(section='WR')
 
-    # ====================== CCI ======================
-    # CCIValues = [14, 20, 24, 36, 48]
-    CCIValues = timeFramesList
-    for index, A in enumerate(CCIValues):
-        dfCCI_A = 'cci' + '|' + str(A).zfill(3)
-        df[dfCCI_A] = cci(
-            df['high'], df['low'], df['close'], n=A, c=0.015, fillna=False
+    # ====================== Momentum - AO ======================
+    AOValuesA = [3, 5]
+    # AOValuesB = [14, 20]
+    AOValuesB = timeFramesList
+    AO_cartesian_product = [(a, b) for a in AOValuesA for b in AOValuesB]
+    for index, AO_A_B in enumerate(AO_cartesian_product):
+        A, B = AO_A_B
+        dfAO_A_B = 'momentum_ao' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
+        df[dfAO_A_B] = ao(
+            df['high'], df['low'], s=A, len=B, fillna=False
         )
-    print_time_lapsed(file_name='CCI')
+    print_time_lapsed(section='AO')
 
-    # ====================== DPO ======================
-    # DPOValues = [20]
-    DPOValues = timeFramesList
-    for index, A in enumerate(DPOValues):
-        dfDPO_A = 'dpo' + '|' + str(A).zfill(3)
-        df[dfDPO_A] = dpo(df['close'], n=A, fillna=False)
-    print_time_lapsed(file_name='DPO')
+    # ====================== Momentum - KAMA ======================
+    # KAMAValues = [5, 10, 20]
+    KAMAValues = timeFramesList
+    for index, A in enumerate(KAMAValues):
+        dfKAMA_A = 'momentum_kama' + '|' + str(A).zfill(3)
+        df[dfKAMA_A] = kama(
+            df['close'], n=A, pow1=2, pow2=30, fillna=False
+        )
+    print_time_lapsed(section='KAMA')
 
-    # ====================== VORTEX ======================
-    # VRTXValues = [6, 14, 20]
-    VRTXValues = timeFramesList
-    for index, A in enumerate(VRTXValues):
-        dfVRTXPOS_A = 'vortex_ind_pos' + '|' + str(A).zfill(3)
-        df[dfVRTXPOS_A] = vortex_indicator_pos(
-            df['high'], df['low'], df['close'], n=A, fillna=False
-        )
-        dfVRTXNEG_A = 'vortex_ind_neg' + '|' + str(A).zfill(3)
-        df[dfVRTXNEG_A] = vortex_indicator_neg(
-            df['high'], df['low'], df['close'], n=A, fillna=False
-        )
-    print_time_lapsed(file_name='VORTEX')
-
-    # ====================== TRIX ======================
-    # TRIXValues = [3, 4, 6]
-    TRIXValues = timeFramesList
-    for index, A in enumerate(TRIXValues):
-        dfTRIX_A = 'trix' + '|' + str(A).zfill(3)
-        df[dfTRIX_A] = trix(df['close'], n=A, fillna=False)
-    print_time_lapsed(file_name='TRIX')
-
-    # ====================== BOLLINGER ======================
-    # BBIValuesA = [24, 36, 48]
-    BBIValuesA = timeFramesList
-    BBIValuesB = [2]
-    BBI_cartesian_product = [(a, b) for a in BBIValuesA for b in BBIValuesB]
-    for index, BBI_A_B in enumerate(BBI_cartesian_product):
-        A, B = BBI_A_B
-        dfBBHI_A_B = (
-            'bollingerBHI' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
-        )
-        df[dfBBHI_A_B] = bollinger_hband_indicator(
-            df['close'], n=A, ndev=B, fillna=False
-        )
-
-        dfBBLI_A_B = (
-            'bollingerBLI' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
-        )
-        df[dfBBLI_A_B] = bollinger_lband_indicator(
-            df['close'], n=A, ndev=B, fillna=False
-        )
-    print_time_lapsed(file_name='BOLLINGER')
-
-    # ====================== DONCHIAN ======================
-    # DCIValues = [12, 14, 20]
-    DCIValues = timeFramesList
-    for index, DCI_A in enumerate(DCIValues):
-        A = DCI_A
-        dfDCHI_A = (
-            'donchianCHI' + '|' + str(A).zfill(3)
-        )
-        df[dfDCHI_A] = donchian_channel_hband_indicator(
+    # ====================== Momentum - ROC ======================
+    # ROCValues = [3, 6, 12, 18, 24, 30, 36, 40, 48, 60, 66, 78, 90, 100, 200]
+    ROCValues = timeFramesList
+    for index, A in enumerate(ROCValues):
+        dfROC_A = 'momentum_roc' + '|' + str(A).zfill(3)
+        df[dfROC_A] = roc(
             df['close'], n=A, fillna=False
         )
+    print_time_lapsed(section='ROC')
 
-        dfDCLI_A = (
-            'donchianCLI' + '|' + str(A).zfill(3)
-        )
-        df[dfDCLI_A] = donchian_channel_lband_indicator(
-            df['close'], n=A, fillna=False
-        )
-    print_time_lapsed(file_name='DONCHIAN')
+    # ********************** Trend Indicators **********************
+    # ====================== Trend - MACD ======================
+    # MACDValues = [3, 6, 12, 14, 20, 24, 36]
+    MACDValues = timeFramesList
+    MACD_cartesian_product = [(a, b) for a in MACDValues for b in MACDValues]
+    for index, MACD_A_B in enumerate(MACD_cartesian_product):
+        A, B = MACD_A_B
+        if A < B:
+            dfMACD_A_B = (
+                    'trend_macd' + '|' +
+                    str(A).zfill(3) + '_' + str(B).zfill(3)
+            )
+            df[dfMACD_A_B] = macd(
+                df['close'], n_fast=A, n_slow=B, fillna=False
+            )
 
-    # ====================== EMA ======================
+            dfMACDSIGN_A_B = (
+                    'trend_macd_sign' + '|' +
+                    str(A).zfill(3) + '_' + str(B).zfill(3)
+            )
+            df[dfMACDSIGN_A_B] = macd_signal(
+                df['close'], n_fast=A, n_slow=B, fillna=False
+            )
+
+            dfMACDDIFF_A_B = (
+                    'trend_macd_diff' + '|' +
+                    str(A).zfill(3) + '_' + str(B).zfill(3)
+            )
+            df[dfMACDDIFF_A_B] = macd_diff(
+                df['close'], n_fast=A, n_slow=B, fillna=False
+            )
+    print_time_lapsed(section='MACD')
+
+    # ====================== Trend - EMA ======================
     # EMAValues = [5, 12]
     EMAValues = timeFramesList
     for index, A in enumerate(EMAValues):
-        dfEMA_A = 'ema' + '|' + str(A).zfill(3)
+        dfEMA_A = 'trend_ema' + '|' + str(A).zfill(3)
         df[dfEMA_A] = ema_indicator(df['close'], n=A, fillna=False)
-    print_time_lapsed(file_name='EMA')
+    print_time_lapsed(section='EMA')
 
-    # ====================== KST ======================
+    # ====================== Trend - ADX ======================
+    
+    # ADXValues = [6, 7, 8]
+    ADXValues = timeFramesList
+    for index, A in enumerate(ADXValues):
+        # dfADX_A = 'adx' + '|' + str(A).zfill(3)
+        # df[dfADX_A] = adx(
+        #     df['high'], df['low'], df['close'], n=A, fillna=False
+        # )
+
+        dfADXPOS_A = 'trend_adx_pos' + '|' + str(A).zfill(3)
+        df[dfADXPOS_A] = adx_pos(
+            df['high'], df['low'], df['close'], n=A, fillna=False
+        )
+
+        dfADXNEG_A = 'trend_adx_neg' + '|' + str(A).zfill(3)
+        df[dfADXNEG_A] = adx_neg(
+            df['high'], df['low'], df['close'], n=A, fillna=False
+        )
+    print_time_lapsed(section='ADX')
+
+    # ====================== Trend - VORTEX ======================
+    # VRTXValues = [6, 14, 20]
+    VRTXValues = timeFramesList
+    for index, A in enumerate(VRTXValues):
+        dfVRTXPOS_A = 'trend_vortex_ind_pos' + '|' + str(A).zfill(3)
+        df[dfVRTXPOS_A] = vortex_indicator_pos(
+            df['high'], df['low'], df['close'], n=A, fillna=False
+        )
+        dfVRTXNEG_A = 'trend_vortex_ind_neg' + '|' + str(A).zfill(3)
+        df[dfVRTXNEG_A] = vortex_indicator_neg(
+            df['high'], df['low'], df['close'], n=A, fillna=False
+        )
+        dfVRTXDIFF_A = 'trend_vortex_diff' + '|' + str(A).zfill(3)
+        df[dfVRTXDIFF_A] = df[dfVRTXPOS_A] - df[dfVRTXNEG_A]
+    print_time_lapsed(section='VORTEX')
+    
+    # ====================== Trend - TRIX ======================
+    # TRIXValues = [3, 4, 6]
+    TRIXValues = timeFramesList
+    for index, A in enumerate(TRIXValues):
+        dfTRIX_A = 'trend_trix' + '|' + str(A).zfill(3)
+        df[dfTRIX_A] = trix(df['close'], n=A, fillna=False)
+    print_time_lapsed(section='TRIX')
+
+    # ====================== Trend - MI ======================
+    # MIValues = [3, 6, 12, 14, 20, 24, 36]
+    MIValues = timeFramesList
+    MI_cartesian_product = [(a, b) for a in MIValues for b in MIValues]
+    for index, MI_A_B in enumerate(MI_cartesian_product):
+        A, B = MI_A_B
+        if A < B:
+            dfMI_A_B = (
+                    'trend_mass_index' + '|' +
+                    str(A).zfill(3) + '_' + str(B).zfill(3)
+            )
+            df[dfMI_A_B] = mass_index(
+                df['high'], df['low'], n=A, n2=B, fillna=False
+            )
+    print_time_lapsed(section='MI')
+
+    # ====================== Trend - CCI ======================
+    # CCIValues = [14, 20, 24, 36, 48]
+    CCIValues = timeFramesList
+    for index, A in enumerate(CCIValues):
+        dfCCI_A = 'trend_cci' + '|' + str(A).zfill(3)
+        df[dfCCI_A] = cci(
+            df['high'], df['low'], df['close'], n=A, c=0.015, fillna=False
+        )
+    print_time_lapsed(section='CCI')
+
+    # ====================== Trend - DPO ======================
+    # DPOValues = [20]
+    DPOValues = timeFramesList
+    for index, A in enumerate(DPOValues):
+        dfDPO_A = 'trend_dpo' + '|' + str(A).zfill(3)
+        df[dfDPO_A] = dpo(df['close'], n=A, fillna=False)
+    print_time_lapsed(section='DPO')
+
+    # ====================== Trend - KST ======================
     df['trend_kst'] = kst(
         df['close'], r1=10, r2=15, r3=20, r4=30, n1=10, n2=10, n3=10, n4=15,
         fillna=False
@@ -462,18 +436,195 @@ for strategyBacktestingFile in strategyBacktestingFileList:
         fillna=False
     )
     df['trend_kst_diff'] = df['trend_kst'] - df['trend_kst_sig']
-    print_time_lapsed(file_name='KST')
+    print_time_lapsed(section='KST')
 
-    # ====================== ADI ======================
-    df['ADI'] = acc_dist_index(
+    # ====================== Trend - ICHIMOKU ======================
+    df['trend_ichimoku_a'] = ichimoku_a(
+        df['high'], df['low'], n1=9, n2=26, visual=False, fillna=False
+    )
+    df['trend_ichimoku_b'] = ichimoku_b(
+        df['high'], df['low'], n2=26, n3=52, visual=False, fillna=False
+    )
+
+    # ====================== Trend - AROON ======================
+    # AroonValues = [6, 12, 14, 20]
+    AroonValues = timeFramesList
+    for index, A in enumerate(AroonValues):
+        dfAroonUp_A = 'trend_aroon_up' + '|' + str(A).zfill(3)
+        df[dfAroonUp_A] = aroon_up(df['close'], n=A, fillna=False)
+
+        dfAroonDown_A = 'trend_aroon_down' + '|' + str(A).zfill(3)
+        df[dfAroonDown_A] = aroon_down(df['close'], n=A, fillna=False)
+
+        dfAroonInd_A = 'trend_aroon_ind' + '|' + str(A).zfill(3)
+        df[dfAroonInd_A] = df[dfAroonUp_A] - df[dfAroonDown_A]
+    print_time_lapsed(section='AROON')
+
+    # ********************** Volatility Indicators **********************
+    # ====================== Volatility - ATR ======================
+    
+    # ATRValues = [3, 6, 14]
+    ATRValues = timeFramesList
+    for index, A in enumerate(ATRValues):
+        dfATR_A = 'volatility_atr' + '|' + str(A).zfill(3)
+        df[dfATR_A] = average_true_range(
+            df['high'], df['low'], df['close'], n=A, fillna=False
+        )
+    print_time_lapsed(section='ATR')
+
+    # ====================== Volatility - BOLLINGER ======================
+    # BBIValuesA = [24, 36, 48]
+    BBIValuesA = timeFramesList
+    BBIValuesB = [2]
+    BBI_cartesian_product = [(a, b) for a in BBIValuesA for b in BBIValuesB]
+    for index, BBI_A_B in enumerate(BBI_cartesian_product):
+        A, B = BBI_A_B
+        dfBBHI_A_B = (
+            'volatility_bollingerBHI' + '|' +
+            str(A).zfill(3) + '_' + str(B).zfill(3)
+        )
+        df[dfBBHI_A_B] = bollinger_hband_indicator(
+            df['close'], n=A, ndev=B, fillna=False
+        )
+
+        dfBBLI_A_B = (
+            'volatility_bollingerBLI' + '|' +
+            str(A).zfill(3) + '_' + str(B).zfill(3)
+        )
+        df[dfBBLI_A_B] = bollinger_lband_indicator(
+            df['close'], n=A, ndev=B, fillna=False
+        )
+
+    # BBValuesA = [24, 36, 48]
+    BBMAValuesA = timeFramesList
+    for index, A in enumerate(BBMAValuesA):
+        dfBBMA_A = 'volatility_bollingerMA' + '|' + str(A).zfill(3)
+        df[dfBBMA_A] = bollinger_mavg(df['close'], n=A, fillna=False)
+
+    print_time_lapsed(section='BOLLINGER')
+
+    # ==================== Volatility - KELTNER CHANNEL ====================
+    # KLTValues = [3, 6, 14]
+    KLTValues = timeFramesList
+    for index, A in enumerate(KLTValues):
+        dfKLTCT_A = 'volatility_keltnerChannelCTR' + '|' + str(A).zfill(3)
+        df[dfKLTCT_A] = keltner_channel_central(
+            df['high'], df['low'], df['close'], n=A, fillna=False
+        )
+
+        dfKLTHB_A = 'volatility_keltnerChannelHBI' + '|' + str(A).zfill(3)
+        df[dfKLTHB_A] = keltner_channel_hband_indicator(
+            df['high'], df['low'], df['close'], n=A, fillna=False
+        )
+
+        dfKLTLB_A = 'volatility_keltnerChannelLBI' + '|' + str(A).zfill(3)
+        df[dfKLTLB_A] = keltner_channel_lband_indicator(
+            df['high'], df['low'], df['close'], n=A, fillna=False
+        )
+    print_time_lapsed(section='KLT')
+
+    # ====================== Volatility - DONCHIAN ======================
+    # DCIValues = [12, 14, 20]
+    DCIValues = timeFramesList
+    for index, DCI_A in enumerate(DCIValues):
+        A = DCI_A
+        dfDCHI_A = (
+            'volatility_donchianCHI' + '|' + str(A).zfill(3)
+        )
+        df[dfDCHI_A] = donchian_channel_hband_indicator(
+            df['close'], n=A, fillna=False
+        )
+
+        dfDCLI_A = (
+            'volatility_donchianCLI' + '|' + str(A).zfill(3)
+        )
+        df[dfDCLI_A] = donchian_channel_lband_indicator(
+            df['close'], n=A, fillna=False
+        )
+    print_time_lapsed(section='DONCHIAN')
+    
+    # ********************** Volume Indicators **********************
+    # ====================== Volume - ADI ======================
+    df['volume_ADI'] = acc_dist_index(
         df['high'], df['low'], df['close'], df['volume'], fillna=False
     )
-    print_time_lapsed(file_name='ADI')
+    print_time_lapsed(section='ADI')
 
-    # ====================== VPT ======================
-    df['VPT'] = volume_price_trend(df['close'], df['volume'], fillna=False)
-    print_time_lapsed(file_name='VPT')
+    # ====================== Volume - OBV ======================
+    df['volume_OBV'] = on_balance_volume(
+        df['close'], df['volume'], fillna=False
+    )
+    print_time_lapsed(section='OBV')
 
+    # ====================== CMF ======================
+    # CMFValues = [6, 12, 14, 20]
+    CMFValues = timeFramesList
+    for index, A in enumerate(CMFValues):
+        dfCMF_A = 'volume_cmf' + '|' + str(A).zfill(3)
+        df[dfCMF_A] = chaikin_money_flow(
+            df['high'], df['low'], df['close'], df['volume'], n=A, fillna=False
+        )
+    print_time_lapsed(section='CMF')
+
+    # ====================== FI ======================
+    # FIValues = [2, 6, 12, 14, 20]
+    FIValues = timeFramesList
+    for index, A in enumerate(FIValues):
+        dfFI_A = 'volume_forceIndex' + '|' + str(A).zfill(3)
+        df[dfFI_A] = force_index(
+            df['close'], df['volume'], n=A, fillna=False
+        )
+    print_time_lapsed(section='FI')
+
+    # ====================== EOM ======================
+    # EOMValues = [2, 6, 12, 14, 20]
+    EOMValues = timeFramesList
+    for index, A in enumerate(EOMValues):
+        dfEOM_A = 'volume_EOM' + '|' + str(A).zfill(3)
+        df[dfEOM_A] = ease_of_movement(
+            df['high'], df['low'], df['close'], df['volume'],
+            n=A, fillna=False
+        )
+    print_time_lapsed(section='EOM')
+
+    # ====================== Volume - VPT ======================
+    df['volume_VPT'] = volume_price_trend(df['close'], df['volume'], fillna=False)
+    print_time_lapsed(section='VPT')
+
+    # ====================== Volume - NVI ======================
+    df['volume_NVI'] = negative_volume_index(df['close'], df['volume'], fillna=False)
+    print_time_lapsed(section='NVI')
+
+    # ********************** Other Indicators **********************
+    # ====================== CLOSE / EMA ======================
+    # closeEMAValues = [12, 14, 20]
+    closeEMAValues = timeFramesList
+    for index, A in enumerate(closeEMAValues):
+        dfCloseEMA_A = 'otherIndicators_closeEmaRatio' + '|' + str(A).zfill(3)
+        df[dfCloseEMA_A] = (
+                df['close'] / ema_indicator(df['close'], n=A, fillna=False)
+        )
+    print_time_lapsed(section='CLOSE/EMA')
+    # """
+    # ====================== EMA / MAX EMA ======================
+    # closeEMAValues = [12, 14, 20]
+    EMAValues = timeFramesList
+    EMAMAXValues = timeFramesList
+    EMA_cartesian_product = [(a, b) for a in EMAValues for b in EMAMAXValues]
+    for index, EMA_A_B in enumerate(EMA_cartesian_product):
+        A, B = EMA_A_B
+        if B <= A:
+            dfEMAMAX_A = (
+                'otherIndicators_emaMaxRatio' + '|' +
+                str(A).zfill(3) + '_' + str(B).zfill(3)
+            )
+            df[dfEMAMAX_A] = (
+                    1 -
+                    (ema_indicator(df['close'], n=A, fillna=False) /
+                        ema_indicator(df['close'], n=A, fillna=False).
+                        rolling(B).max())
+            )
+    print_time_lapsed(section='EMA / MAX EMA')
 
     # """
     # </editor-fold>
@@ -486,9 +637,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
          (df['signalLabel'] == 'openSell'))
     ]
 
-    # Remove records containing NaN and Reset Index
-    df = df.dropna()
-    df = df.reset_index(drop=True)
+    # df.to_csv(str(outputFile + 'FULL.csv'), index=False)
     # </editor-fold>
 
     # <editor-fold desc=" ===== Calculate Correlations ==================== ">
@@ -504,7 +653,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # In case of multiple versions of the same indicator,
     # we will want to keep only the best one
     dfCorrConcat = pd.DataFrame([])
-    corrLvlRanges = [(1.00, 0.85, 7), (0.85, 0.75, 5), (0.75, 0.50, 5)]
+    corrLvlRanges = [correlLevel1, correlLevel2, correlLevel3]
     # corrLvlRanges = [(1, 0.9)]
     for index, corrLvlRange in enumerate(corrLvlRanges):
         corrRangeUp, corrRangeDown, corrHead = corrLvlRange
@@ -549,13 +698,17 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     df = df.drop(['signalLabel'], axis=1)
 
     print('\n')
-    print_time_lapsed(file_name='Data frame ready with best indicators')
+    print_time_lapsed(section='Data frame ready with best indicators')
     # </editor-fold>
 
     # <editor-fold desc=" ===== Export data =============================== ">
 
+    # # Remove records containing NaN and Reset Index
+    # df = df.dropna()
+    # df = df.reset_index(drop=True)
+
     df.to_csv(str(outputFile + '.csv'), index=False)
-    print_time_lapsed(file_name='CSV saved: ' + outputFile)
+    print_time_lapsed(section='CSV saved: ' + outputFile)
 
     # </editor-fold>
 
@@ -587,7 +740,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # delete original df
     del df, data, target
 
-    print_time_lapsed(file_name='Pre-process + data split')
+    print_time_lapsed(section='Pre-process + data split')
 
     # Neural Network training
     nnMLPC = MLPClassifier(
@@ -602,7 +755,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     predictionMLPC = nnMLPC.predict(X_test)
 
     print('\n')
-    print_time_lapsed(file_name='Neural Network Fit & Predict')
+    print_time_lapsed(section='Neural Network Fit & Predict')
 
     # Check model's performance
     print('\n' + 'Neural Network classification_report:' + '\n')
@@ -612,7 +765,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     print(confusion_matrix(y_test, predictionMLPC))
 
     print('\n')
-    print_time_lapsed(file_name='Neural Network Score')
+    print_time_lapsed(section='Neural Network Score')
     # </editor-fold>
 
 print_time_lapsed(final=True)

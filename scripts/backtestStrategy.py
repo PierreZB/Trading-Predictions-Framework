@@ -1,4 +1,5 @@
 # <editor-fold desc=" ===== Import Libraries ============================== ">
+import shutil
 import sys
 from os import listdir, path
 import numpy as np
@@ -6,10 +7,16 @@ from scripts.project_settings import *
 
 # Change pandas display options to show full tables
 pd.set_option('display.expand_frame_repr', False)
-pd.set_option('display.max_rows', 1000)
+pd.set_option('display.max_rows', 25)
+pd.set_option('display.max_colwidth', 255)
+# pd.set_option('display.max_columns', 500)
+# pd.set_option('display.width', 10000)
 # </editor-fold>
 
 # <editor-fold desc=" ===== Complete settings list ======================== ">
+# When running tests I recommended to limit the number of rows in the data set
+# set to 0 to load all rows
+rowsLimit = 0
 
 takeProfitFrom = 99_999
 takeProfitTo = 99_999
@@ -30,7 +37,7 @@ def list_files(directory, extension, exclude):
     )
 
 
-# Generate list of csv files in dataStrategyBacktestingStats
+# Generate list of csv files in dataStrategy
 filesList = list_files(str(dataStrategy), 'csv', '###')
 
 backtestStrategyFileList = []
@@ -88,8 +95,7 @@ for fileTuple in backtestStrategyFileList:
     # Remove potential duplicates
     backtestStrategySettingsList = list(set(backtestStrategySettingsList))
 
-print('Complete settings list')
-print_time_lapsed()
+print_time_lapsed(section='Complete settings list')
 # </editor-fold>
 
 # <editor-fold desc=" ===== Load Maps for actions ===================== ">
@@ -123,10 +129,8 @@ dfActionToUpdatedPosition = pd.read_excel(
 
 dctActionToUpdatedPosition = dfActionToUpdatedPosition.to_dict()
 
-print('pre-loop')
-print_time_lapsed()
+print_time_lapsed(section='Pre-loop')
 # </editor-fold>
-
 
 for backtestStrategyTuple in backtestStrategySettingsList:
 
@@ -150,22 +154,14 @@ for backtestStrategyTuple in backtestStrategySettingsList:
             str('.csv')
     )
 
-    outputStatsFile = (
-            str(dataStrategyBacktestingStats) + '/' +
-            str(inputFileName) + "_" +
-            str("TP") + str(takeProfitPips).zfill(5) + "_" +
-            str("SL") + str(stopLossPips).zfill(5) +
-            str("_Stats") +
-            str('.csv')
-    )
-
     # Load csv, sort by ID, remove duplicates based on ID, reset the index
     df = sort_deduplicate_reindex_data_frame(
         data_frame=df, index_field='ID', csv_source_file=inputFile
     )
 
     # Limit df records to make tests quicker
-    # df = df.head(1082)
+    if rowsLimit != 0:
+        df = df.head(rowsLimit)
 
     # Ensure signals are filled with 0 and 1 values only; if not, fill with 0
     signalsList = ['buyingSignal', 'sellingSignal', 'closingSignal']
@@ -331,8 +327,7 @@ for backtestStrategyTuple in backtestStrategySettingsList:
             ]
         )
 
-    print('post-loop')
-    print_time_lapsed()
+    print_time_lapsed(section='Post-loop')
 
     # buyingSignalText & sellingSignalText
     dfCodePnLOnClose = dfActionToUpdatedPosition[[
@@ -545,53 +540,122 @@ for backtestStrategyTuple in backtestStrategySettingsList:
 
     df.to_csv(outputBacktestFile, index=False)
     # df.to_parquet('myFile.parquet.gzip', compression='gzip')
-    print_time_lapsed(file_name=outputBacktestFile)
 
-    print('write out files')
-    print_time_lapsed()
+    # Move raw strategy file to backtestCompleted folder
+    shutil.move(inputFile, str(dataStrategy) + '/backtestCompleted')
+
+    print_time_lapsed(section=outputBacktestFile)
+
     # </editor-fold>
 
-print_time_lapsed(final=True)
+del df
 
-exit()
+# <editor-fold desc=" ===== Aggr backtest ============================= ">
 
-"""
-# <editor-fold desc=" ===== Prepare Stats Fields ====================== ">
-# Generate the data frame dedicated to aggregated statistics
-dfStats = df[[
-    'ID',
-    'sourceFile',
-    'timestamp',
-    'takeProfit',
-    'stopLoss',
-    'pnlPips',
-    'pnlPercent',
-    'statsBuyingPosition',
-    'statsSellingPosition',
-    'statsHitTakeProfit',
-    'statsHitStopLoss',
-    'statsHitTakeProfitAndStopLoss',
-    'statsNumberOfPeriods',
-    'noActionTaken'
-]]
+dfBacktest = pd.DataFrame([])
+dfConcat = pd.DataFrame([])
 
+# Generate list of csv files in dataStrategy
+filesListBacktesting = list_files(
+    str(dataStrategyBacktesting), 'csv', 'AggrStats'
+)
+
+for fileBacktesting in filesListBacktesting:
+
+    # Define file paths
+    inputFile = (
+            str(dataStrategyBacktesting) + '/' +
+            str(fileBacktesting) + str('.csv')
+    )
+
+    # Load csv, sort by ID, remove duplicates based on ID, reset the index
+    dfBacktest = sort_deduplicate_reindex_data_frame(
+        data_frame=dfBacktest, index_field='ID', csv_source_file=inputFile
+    )
+
+    dfBacktest['fileName'] = fileBacktesting
+
+    # Concatenate the output of each loop
+    dfConcat = pd.concat(
+        [dfConcat, dfBacktest],
+        ignore_index=True,
+        sort=False
+    )
+
+# PnL
+# TODO Get real spread values from Oanda
+spread = 0.0004
+
+dfConcat['rawPotential'] = np.where(
+    ((1 - dfConcat['close'] / dfConcat['open']).abs() > spread),
+    (1 - dfConcat['close'] / dfConcat['open']).abs(),
+    0
+)
+dfConcat['pnlPercent'] = dfConcat['pnlPercent'] - spread
+
+dfConcat.loc[dfConcat['pnlPercent'] > 0, 'positivePnL'] = (
+    round(dfConcat['pnlPercent'], 5)
+)
+dfConcat.loc[dfConcat['pnlPercent'] <= 0, 'negativePnL'] = (
+    round(dfConcat['pnlPercent'], 5)
+)
+
+dfConcat['year'] = pd.DatetimeIndex(dfConcat['timestamp']).year
+
+# Group by fileName
+dfStats = (
+    dfConcat.groupby(['fileName']).
+    agg({
+        'statsNumberOfPeriods': ['mean'],
+        'pnlPercent': ['sum', 'count', 'mean'],
+        'rawPotential': ['sum', 'count', 'mean'],
+        'positivePnL': ['sum', 'count', 'mean'],
+        'negativePnL': ['sum', 'count', 'mean'],
+        'year': pd.Series.nunique
+    }).reset_index()
+)
+
+# Merge the column multi index
+dfStats.columns = dfStats.columns.map('_'.join)
+
+# rename group by fields
 dfStats = dfStats.rename(columns={
-    'statsBuyingPosition': 'buyingPosition',
-    'statsSellingPosition': 'sellingPosition',
-    'statsHitTakeProfit': 'hitTakeProfit',
-    'statsHitStopLoss': 'hitStopLoss',
-    'statsHitTakeProfitAndStopLoss': 'hitTakeProfitAndStopLoss',
-    'statsNumberOfPeriods': 'numberOfPeriods'
+    'fileName_': 'fileName'
 })
 
-# Keep only records where the position was closed (drop empty rows)
-dfStats = dfStats[
-    (dfStats['pnlPips'] < 999_999) |
-    (dfStats['noActionTaken'].astype(int) == 1)
-    ]
+# Calculate win rate
+dfStats['winRate'] = (
+    dfStats['positivePnL_count'] /
+    (dfStats['positivePnL_count'] + dfStats['negativePnL_count'])
+)
+# Calculate yearly average PnL
+dfStats['avgYearlyPnL'] = dfStats['pnlPercent_sum'] / dfStats['year_nunique']
 
-# </editor-fold>
+# Move winRate and avgYearlyPnL columns in first position
+coreColumns = list(dfStats)
+coreColumns.insert(0, coreColumns.pop(coreColumns.index('winRate')))
+coreColumns.insert(1, coreColumns.pop(coreColumns.index('avgYearlyPnL')))
+dfStats = dfStats.loc[:, coreColumns]
 
-dfStats.to_csv(outputStatsFile, index=False)
+dfStats = dfStats.sort_values(by=['avgYearlyPnL'], ascending=False)
+dfStats = dfStats.reset_index(drop=True)
 
-"""
+print('\n')
+print('Backtest files sorted by average yearly PnL:')
+print('\n')
+print(dfStats)
+print('\n')
+
+outputBacktestStatsFile = (
+        str(dataStrategyBacktesting) + '/' +
+        str('AggrStats') + str('.csv')
+)
+
+dfStats.to_csv(outputBacktestStatsFile, index=False)
+# df.to_parquet('myFile.parquet.gzip', compression='gzip')
+print_time_lapsed(section=outputBacktestFile)
+
+del dfStats, dfConcat
+
+print('\n')
+print_time_lapsed(final=True)

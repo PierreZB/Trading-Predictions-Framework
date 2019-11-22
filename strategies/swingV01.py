@@ -16,12 +16,12 @@ strategyFileList = [
 ]
 
 # Difference between close and open threshold per candle (per ten thousand)
-threshold = 20
+threshold = 15
 # numbers of periods to analyse around current candle
-periodsToAnalyseAroundCandle = 12
-periodsToAnalyseAfterCandle = 192
+periodsToAnalyseAroundCandle = 24 * 3
+periodsToAnalyseAfterCandle = 24 * 3
 # set the maximum level of stop loss you can tolerate (per ten thousand)
-maxSL = 0
+maxSL = 8
 
 # prepare those variables for the calculations
 thresholdPerThsd = threshold / 10000
@@ -176,7 +176,7 @@ for strategyFile in strategyFileList:
 
     # print(df)
     df.to_csv(outputFile, index=False)
-    print_time_lapsed(file_name=outputFile)
+    print_time_lapsed(section=outputFile)
     # </editor-fold>
 
 print_time_lapsed(final=True)

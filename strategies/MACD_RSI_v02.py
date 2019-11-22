@@ -10,27 +10,23 @@ pd.set_option('display.max_rows', 500)
 
 # List of files on which you want to apply this strategy
 strategyFileList = [
-    'EURUSD_H1_20050101_20191026',
-    # 'BCOUSD_H1_20050101_20191026',
-    # 'EURUSD_H1_20180101_20181231',
-    # 'BCOUSD_H1_20180101_20181231',
-    # 'EURUSD_M15_20040101_20191026'
+    'EURUSD_H1_20050101_20191026'
 ]
 
 # MACD and RSI settings
-offsetMacdRsi = 1
-macdFast = 12
-macdSlow = 26
-macdSignalSmoothing = 9
-rsiSignal = 14
+offsetMacdRsi = 0
+macdFast = 12 * 4
+macdSlow = 26 * 4
+macdSignalSmoothing = 9 * 4
+rsiSignal = 14 * 4
 
 # Difference between close and open threshold per candle (per ten thousand)
-threshold = 5
+threshold = 15
 # numbers of periods to analyse around current candle
-periodsToAnalyseForTP = 2
-periodsToAnalyseForSL = 1
+periodsToAnalyseForTP = 24 * 3
+periodsToAnalyseForSL = 24 * 3
 # set the maximum level of stop loss you can tolerate (per ten thousand)
-maxSL = 1
+maxSL = 8
 
 # prepare those variables for the calculations
 thresholdPerThsd = threshold / 10000
@@ -129,8 +125,8 @@ for strategyFile in strategyFileList:
         ((df['currentCandleOC'] == 1) &
          ((df['maxNextTP'] / df['open']) - 1 >= thresholdPerThsd) &
          (1 - (df['minNextSL'] / df['open']) < maxSLPerThsd) &
-         (df['macdDiffOffset'] < 0) &
-         (df['rsiOffset'] < 50)
+         (df['rsiOffset'] < 50) &
+         (df['macdDiffOffset'] < 0)
          ),
         1,
         0
@@ -140,8 +136,8 @@ for strategyFile in strategyFileList:
         ((df['currentCandleOC'] == 0) &
          ((df['maxNextTP'] / df['close']) - 1 >= thresholdPerThsd) &
          (1 - (df['minNextSL'] / df['close']) < maxSLPerThsd) &
-         (df['macdDiffOffset'] < 0) &
-         (df['rsiOffset'] < 50)
+         (df['rsiOffset'] < 50) &
+         (df['macdDiffOffset'] < 0)
          ),
         1,
         0
@@ -159,8 +155,8 @@ for strategyFile in strategyFileList:
         ((df['currentCandleOC'] == 0) &
          (1 - (df['minNextTP'] / df['open']) >= thresholdPerThsd) &
          ((df['maxNextSL'] / df['open']) - 1 < maxSLPerThsd) &
-         (df['macdDiffOffset'] < 0) &
-         (df['rsiOffset'] < 50)
+         # (df['rsiOffset'] < 50) &
+         (df['macdDiffOffset'] < 0)
          ),
         1,
         0
@@ -170,8 +166,8 @@ for strategyFile in strategyFileList:
         ((df['currentCandleOC'] == 1) &
          (1 - (df['minNextTP'] / df['close']) >= thresholdPerThsd) &
          ((df['maxNextSL'] / df['close']) - 1 < maxSLPerThsd) &
-         (df['macdDiffOffset'] < 0) &
-         (df['rsiOffset'] < 50)
+         # (df['rsiOffset'] < 50) &
+         (df['macdDiffOffset'] < 0)
          ),
         1,
         0
@@ -193,7 +189,7 @@ for strategyFile in strategyFileList:
 
     # print(df)
     df.to_csv(outputFile, index=False)
-    print_time_lapsed(file_name=outputFile)
+    print_time_lapsed(section=outputFile)
     # </editor-fold>
 
 print_time_lapsed(final=True)

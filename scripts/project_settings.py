@@ -6,8 +6,6 @@ from pathlib import Path
 # </editor-fold>
 
 # <editor-fold desc=" ===== Path variables ================================ ">
-strategyFolder = 'macdRsi'
-
 projectPath = 'C:/Users/xau\OneDrive\GitHub\Trading-Predictions-Framework'
 # projectPath = '/Users/mbp13/OneDrive/GitHub/Trading-Predictions-Framework'
 # projectPath = '/Volumes/TPF_data'
@@ -18,19 +16,19 @@ dataRawExtracts = Path(
     projectPath + '/data/raw_extracts'
 )
 dataStrategy = Path(
-    projectPath + '/data/strategy_raw/' + strategyFolder
+    projectPath + '/data/strategy_raw'
 )
 dataStrategyBacktesting = Path(
-    projectPath + '/data/strategy_backtesting/' + strategyFolder
+    projectPath + '/data/strategy_backtesting'
 )
 dataStrategyBacktestingStats = Path(
-    projectPath + '/data/strategy_backtesting_stats/' + strategyFolder
+    projectPath + '/data/strategy_backtesting_stats'
 )
 dataModelsRaw = Path(
-    projectPath + '/data/models_raw/' + strategyFolder
+    projectPath + '/data/models_raw'
 )
 dataModelsBacktesting = Path(
-    projectPath + '/data/models_backtesting/' + strategyFolder
+    projectPath + '/data/models_backtesting'
 )
 # </editor-fold>
 
@@ -97,11 +95,11 @@ def sort_deduplicate_reindex_data_frame(
     return data_frame
 
 
-def print_time_lapsed(file_name=False, final=False):
+def print_time_lapsed(section=False, final=False):
     """
     Print the time lapsed since script started. The argument file_name allows
     the user to add the last exported file name to the print statement.
-    :param file_name: Last exported file name
+    :param section: name of the code section that has finished
     (optional, defaults to False)
     :param final: Set as True to specify it is the last time lapsed statement
     (optional, defaults to False)
@@ -109,8 +107,8 @@ def print_time_lapsed(file_name=False, final=False):
     """
     global previousTime
 
-    if file_name is not False:
-        file_name_printed = str(file_name) + str(" ")
+    if section is not False:
+        file_name_printed = str(section) + str(" ")
     else:
         file_name_printed = str('')
 

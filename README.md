@@ -60,13 +60,6 @@ projectPath = '/Users/username/OneDrive/GitHub/Trading-Predictions-Framework'
 macOS external folder:
 projectPath = '/Volumes/TPF_data'
 
-If you already know what strategy you will want to test, you can also update right away the `strategyFolder` variable, and create this folder under each of these directories:
-
-* data\strategy_raw\
-* data\strategy_backtesting\
-* data\models_raw\
-* models\
-
 # Data extraction
 Open "scripts\extractionOanda.py" and update the following variables to suit your needs:
 
@@ -97,13 +90,6 @@ Notes:
 * the format of the outputted file name will be INSTRUMENT_GRANULARITY_DATEFROM_DATETO.csv
 
 # Optimisation strategy
-If you haven’t done it yet, decide on your strategy name, and update in the projects_settings.py the “strategyFolder” variable, and create a folder with this same name under each of these directories:
-
-* data\strategy_raw\{myStrategy}
-* data\strategy_backtesting\{myStrategy}
-* data\models_raw\{myStrategy}
-* models\{myStrategy}
-
 Go to the strategies folder and create your strategy script: myStrategy.py
 
 In this file, apply any strategy you want; make sure your output contains at least those fields:
@@ -161,11 +147,11 @@ The 2 last fields should contain 0 (if the reference price is the closing price 
 This was implemented for strategies where a Take Profit and Stop Loss rules are required, but based on different reference.
 For instance, in a buying position, the 7amUK strategy sets a take profit at x pips above the high of the 7 am candle, and a stop loss x pips below the low of the 7 am candle.
 
-You output file should be a csv, stored into this folder:
-"data\strategy_raw\{myOutputFile}"
+Your output file should be a csv, stored into this folder:
+"data\strategy_raw\{myOutputFile.csv}"
 
 The format of the file should be:
-INSTRUMENT_GRANULARITY_DATEFROM_DATETO_strategyName{_strategy-settings-values}.csv
+INSTRUMENT_GRANULARITY_DATEFROM_DATETO_strategyName_strategy-settings-values.csv
 
 Where the strategy settings values are the parameters related to your strategy, for instance, if your strategy relies on a MACD 12, 26, 9 you may want to record these settings in the file name to avoid overwriting your strategy output file, and keep track of the different versions of your strategy output files.
 
@@ -244,8 +230,7 @@ Notes:
 * I have have written the backtest logic in python (backtestStrategy.py) and QlikView (backtestStrategy.qvs) and the QlikView file is much faster. However, some differences might still exist between those 2 processes, the python file is the most up to date.
 
 
-# Technical indicators
-## Automated process
+# Variables (Technical indicators)
 
 Before heading for predictions, you may want to create variables that will help the machine learning algorithm to take decisions.
 
@@ -258,31 +243,28 @@ The script will generate a list of technical indicators, keep only the most rele
 The predictions will be made on the latest dates from your source data set so you can get a rough idea of the accuracy you can expect for your future production predictions.
 The predictions scoring will be printed at the end opf the script. 
 
-The output of this file will be another csv with ID, timestamp, target and all the indicators selected by the script, and will be stored in "data\models_raw\{mymodelsRawFile}". 
+The output of this file will be another csv with ID, timestamp, target and all the indicators selected by the script, and will be stored in "data\models_raw\{myModelRawFile.csv}". 
 
 Keep in mind that the score displayed with this script isn't optimised and could obviously get much better. The purpose here is to give a general idea of the quality of the input data and how it can help and algorithm to classify the targets.
 
-## Manual process
-In "models\{myStrategyIndicators}" you can create a python file which purpose will be to generate those variables, create a new `target` field which will be the target your machine learning algorithm will try to reach, and output this file into "data\models_raw\{mymodelsRawFile}"
-
-In my scripts I have chosen to use the “ta” python package to automatically calculate a bunch of technical indicators.
-I also define the `target` field in two different ways depending on my needs:
-* sometimes I simply convert the `signalLabel` field into a boolean value (0 = sell, 1 = buy); this results in a pure swing trading strategy (“binary”)
-* sometimes, I create 3 values ("true3"), based on the `buyingSignal`, `sellingSignal` and `closingSignal`; this results in 3 values: 0 = sell, 1 = hold, 2 = buy
-* you can obviously choose to generate the `target` field as you wish (for instance a binary target with only buying and closing buy signals…)
-
 # Predictions
-To make predictions, I used 3 different tools:
+
+To make predictions, I use 3 different tools:
 * Knime
 * Orange
 * TPOT
 
-First, I load the "data\models_raw\{myModelsRawFile}" created previously in Knime, and analyse the correlations between my target field and all of the other variables.
+### Knime
+*Note that the following step isn't mandatory as you can retrieve the information regarding highly correlated variables in the previous process (Variables (Technical indicators)).*
 
+First, I load the previously created "data\models_raw\{myModelRawFile.csv}" in Knime, and analyse the correlations between my target field and all of the other variables.
 Usually, if none of the variables has an absolute correlation with the target greater than 50%, I go back to the strategy process as the predictions will very probably be poor.
 
+### Orange
+*Note that the following prediction score "preview" step isn't mandatory as it is also already done in the previous process (Variables (Technical indicators)).*
+
 Then, I open Orange, and use the “prediction_template.ows” workflow to do a quick predictions test:
-* load the file "data\models_raw\{myModelsRawFile}"
+* load the file "data\models_raw\{myModelRawFile.csv}"
 	* ID -> Text
 	* timestamp -> Date
 	* target -> Categorical
@@ -295,15 +277,17 @@ Then, I open Orange, and use the “prediction_template.ows” workflow to do a 
 * apply the pre-process method you find relevant to your data
 * choose the model/s relevant to your data
 * link the model/s to the prediction and Test and Score widgets
-* analyse the accuracy in the confusion matrix
+* analyse the accuracy in the confusion matrix 
 
 Usually, this gives me a good idea of the quality of the data I input.
-If I’m curious enough at that stage, I can save the predictions, and manually load them into a strategy file ("data\strategy_raw\{myStrategy}") and then backtest it.
+If I’m curious enough at that stage, I can save the predictions, and manually load them into a strategy file ("data\strategy_raw\{myStrategy.csv}") and then backtest it.
 
+### TPOT
 Finally, if I am satisfied with the accuracy of the predictions, I use the python package TPOT to find the model that fits the best the data, and gives the best predictions.
 
 As of now, I use TPOT with dask to parallelise the tasks, and I noticed it works the best in a Jupyter notebook.
-So I create a Jupyter notebook under "models\{myJupyterNotebook}" and run it in Jupyter Lab.
+So I use the Jupyter notebook "scripts\TPOTClassifier.ipynb" and run it in Jupyter Lab.
+Note: if you use the "warm_start=True" and "memory=..." arguments, I recommend to create and use a dedicated folder to store the cache under "models\{myTpotCachingFolder}"
 
 -----
 

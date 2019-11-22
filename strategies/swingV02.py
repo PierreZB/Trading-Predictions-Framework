@@ -112,7 +112,7 @@ for strategyFile in strategyFileList:
 
     # print(df)
     df.to_csv(outputFile, index=False)
-    print_time_lapsed(file_name=outputFile)
+    print_time_lapsed(section=outputFile)
     # </editor-fold>
 
 print_time_lapsed(final=True)
