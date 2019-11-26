@@ -1,7 +1,8 @@
 # <editor-fold desc=" ===== Import Libraries ============================== ">
 import shutil
-import sys
-from os import listdir, path
+# import sys
+# from os import listdir, path
+from os import listdir
 import numpy as np
 from scripts.project_settings import *
 
@@ -551,6 +552,11 @@ for backtestStrategyTuple in backtestStrategySettingsList:
 del df
 
 # <editor-fold desc=" ===== Aggr backtest ============================= ">
+print('\n')
+print('\n')
+print(' ============== Aggregating Backtest Stats ============== ')
+print('\n')
+print('\n')
 
 dfBacktest = pd.DataFrame([])
 dfConcat = pd.DataFrame([])

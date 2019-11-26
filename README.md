@@ -16,20 +16,11 @@ Main process flow:
 
 # Before you start
 ## Requirements
-*TO BE COMPLETED*
 * Oanda API Token: [https://developer.oanda.com](https://developer.oanda.com)
-* Python packages:
-	* pandas 0.24.2
-	* numpy 1.17.3
-	* ta 0.4.7
-	* tpot 0.10.2
-	* scikit-learn 0.21.3
-	* scikit-mdr 0.4.4
-	* dask 2.7.0
-	* dask-core 2.7.0
-	* dask-glm 0.2.0
-	* dask-ml 1.1.1
-	* …
+* Python packages: see requirements.txt
+
+`pip install -r requirements.txt`
+https://pip.pypa.io/en/stable/user_guide/
 
 ## Software you may need
 * Orange (data mining; can be installed with Anaconda)

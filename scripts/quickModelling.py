@@ -1,7 +1,7 @@
 # <editor-fold desc=" ===== Import ======================================== ">
 from scripts.project_settings import *
 from ta import *
-from datetime import datetime
+# from datetime import datetime
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import QuantileTransformer
@@ -30,11 +30,15 @@ trainingDataSet = 0.9
 
 # When running tests I recommended to limit the number of rows in the data set
 # set to 0 to load all rows
-rowsLimit = 0  # 10_000
+dateFrom = '2017-03-20'
+dateTo = '2019-01-01'
+rowsLimit = 0
 
 # list of files to process
 strategyBacktestingFileList = [
-    'EURUSD_H1_20050101_20191026_emaCrossingV01_thld015-SL008-prd216-emaS020-emaL050shift001_TP99999_SL99999'
+    'EURUSD_H1_20050101_20191026_' +
+    'emaCrossingV01_thld015-SL008-prd048-emaS012-emaL024-shift002' +
+    '_TP99999_SL99999'
 ]
 # </editor-fold>
 
@@ -69,7 +73,7 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     })
 
     if rowsLimit != 0:
-        df = df.head(rowsLimit)
+        df = df.tail(rowsLimit)
 
     # </editor-fold>
 
@@ -80,10 +84,10 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     )
 
     # df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
-    df = df[(
-            (df['timestamp'] >= pd.Timestamp('2005-01-01 00:00:00+00:00')) &
-            (df['timestamp'] < pd.Timestamp('2020-01-01 00:00:00+00:00'))
-    )]
+    df = df[
+        ((df['timestamp'] >= pd.Timestamp(dateFrom + ' 00:00:00+00:00')) &
+         (df['timestamp'] < pd.Timestamp(dateTo + ' 00:00:00+00:00')))
+    ]
 
     df['timestamp'] = df['timestamp'].dt.tz_convert('Europe/London')
 
@@ -187,8 +191,8 @@ for strategyBacktestingFile in strategyBacktestingFileList:
 
     # Define time frames list for indicators loops below
     timeFramesList = [
-        3, 6, 14, 20, 24, 30, 36, 40, 48, 60, 66, 78, 90,
-        100, 150, 200, 250, 300, 350, 400, 450, 500, 600
+        1, 3, 6, 10, 14, 20, 24, 30, 36, 40, 48, 60, 66, 75, 78, 90,
+        100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700
     ]
     # """
     # ********************** Momentum Indicators **********************
@@ -279,7 +283,10 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     AO_cartesian_product = [(a, b) for a in AOValuesA for b in AOValuesB]
     for index, AO_A_B in enumerate(AO_cartesian_product):
         A, B = AO_A_B
-        dfAO_A_B = 'momentum_ao' + '|' + str(A).zfill(3) + '_' + str(B).zfill(3)
+        dfAO_A_B = (
+            'momentum_ao' + '|' +
+            str(A).zfill(3) + '_' + str(B).zfill(3)
+        )
         df[dfAO_A_B] = ao(
             df['high'], df['low'], s=A, len=B, fillna=False
         )
@@ -413,7 +420,8 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     for index, A in enumerate(CCIValues):
         dfCCI_A = 'trend_cci' + '|' + str(A).zfill(3)
         df[dfCCI_A] = cci(
-            df['high'], df['low'], df['close'], n=A, c=0.015, fillna=False
+            df['high'], df['low'], df['close'], n=A, fillna=False
+            # df['high'], df['low'], df['close'], n=A, c=0.015, fillna=False
         )
     print_time_lapsed(section='CCI')
 
@@ -588,11 +596,15 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     print_time_lapsed(section='EOM')
 
     # ====================== Volume - VPT ======================
-    df['volume_VPT'] = volume_price_trend(df['close'], df['volume'], fillna=False)
+    df['volume_VPT'] = volume_price_trend(
+        df['close'], df['volume'], fillna=False
+    )
     print_time_lapsed(section='VPT')
 
     # ====================== Volume - NVI ======================
-    df['volume_NVI'] = negative_volume_index(df['close'], df['volume'], fillna=False)
+    df['volume_NVI'] = negative_volume_index(
+        df['close'], df['volume'], fillna=False
+    )
     print_time_lapsed(section='NVI')
 
     # ********************** Other Indicators **********************
@@ -625,6 +637,44 @@ for strategyBacktestingFile in strategyBacktestingFileList:
                         rolling(B).max())
             )
     print_time_lapsed(section='EMA / MAX EMA')
+
+    # ====================== EMAs CROSSING ======================
+    # closeEMAValues = [12, 14, 20]
+    EMAValues = timeFramesList
+    EMAMAXValues = timeFramesList
+    EMA_cartesian_product = [(a, b) for a in EMAValues for b in EMAMAXValues]
+    for index, EMA_A_B in enumerate(EMA_cartesian_product):
+        A, B = EMA_A_B
+        if A < B:
+            df['emaShort'] = 0
+            df['emaLong'] = 0
+
+            df['emaShort'] = (
+                df['close'].ewm(span=A, min_periods=0).mean()
+            )
+            df['emaLong'] = (
+                df['close'].ewm(span=B, min_periods=0).mean()
+            )
+
+            dfEMACross = (
+                    'otherIndicators_emaCross' + '|' +
+                    str(A).zfill(3) + '_' + str(B).zfill(3)
+            )
+
+            df[dfEMACross] = np.where(
+                (df['emaShort'] > df['emaLong']) &
+                (df['emaShort'].shift(1) < df['emaLong'].shift(1)),
+                1,
+                0
+            )
+
+            df[dfEMACross] = np.where(
+                (df['emaShort'] < df['emaLong']) &
+                (df['emaShort'].shift(1) > df['emaLong'].shift(1)),
+                -1,
+                df[dfEMACross]
+            )
+    print_time_lapsed(section='EMA Crossing')
 
     # """
     # </editor-fold>
@@ -704,8 +754,8 @@ for strategyBacktestingFile in strategyBacktestingFileList:
     # <editor-fold desc=" ===== Export data =============================== ">
 
     # # Remove records containing NaN and Reset Index
-    # df = df.dropna()
-    # df = df.reset_index(drop=True)
+    df = df.dropna()
+    df = df.reset_index(drop=True)
 
     df.to_csv(str(outputFile + '.csv'), index=False)
     print_time_lapsed(section='CSV saved: ' + outputFile)
