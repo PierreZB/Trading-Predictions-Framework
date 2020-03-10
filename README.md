@@ -16,18 +16,20 @@ Main process flow:
 
 # Before you start
 ## Requirements
-* Oanda API Token: [https://developer.oanda.com](https://developer.oanda.com)
+* [Oanda API Token](https://developer.oanda.com/rest-live-v20/introduction/)
 * Python packages: see requirements.txt
 
 `pip install -r requirements.txt`
+
 https://pip.pypa.io/en/stable/user_guide/
 
 ## Software you may need
-* Orange (data mining; can be installed with Anaconda)
-* Knime (data mining)
-* Tableau (BI/Visualisation)
-* QlikView (BI/Visualisation)
-* Qlik Sense (BI/Visualisation)
+* [Orange](https://orange.biolab.si/download/) (data mining; can be installed with Anaconda)
+* [Knime](https://www.knime.com/downloads/download-knime) (data mining)
+* [Microsoft PowerBI](https://powerbi.microsoft.com/en-us/get-started/) (BI/Visualisation)
+* [Tableau](https://public.tableau.com/en-us/s/download) (BI/Visualisation)
+* [QlikView](https://www.qlik.com/us/trial/download-qlikview) (BI/Visualisation)
+* [Qlik Sense](https://www.qlik.com/us/trial/download-qlik-sense-desktop) (BI/Visualisation)
 
 ## Make sure you have created the following folders
 * data\raw_extracts
@@ -35,20 +37,25 @@ https://pip.pypa.io/en/stable/user_guide/
 * data\strategy_backtesting
 * data\models_raw
 
-# Update oanda_api_headers.py
+## Update oanda_api_headers.py
 Open "scripts\oanda_api_headers.py" and update the Authorization key with your own.
 
 ## Update projects_settings.py
 Open "scripts\project_settings.py"
 
-And update projectPath to suite your needs. There are currently 3 examples paths
-Windows local folders:
+And update projectPath to suit your needs. There are currently 3 examples paths:
+
+
+- Windows local folders:
+
 projectPath = 'C:/Users/username\OneDrive\GitHub\Trading-Predictions-Framework'
 
-macOS local folder:
+- macOS local folder:
+
 projectPath = '/Users/username/OneDrive/GitHub/Trading-Predictions-Framework'
 
-macOS external folder:
+- macOS external folder:
+
 projectPath = '/Volumes/TPF_data'
 
 # Data extraction
@@ -144,13 +151,15 @@ Your output file should be a csv, stored into this folder:
 The format of the file should be:
 INSTRUMENT_GRANULARITY_DATEFROM_DATETO_strategyName_strategy-settings-values.csv
 
-Where the strategy settings values are the parameters related to your strategy, for instance, if your strategy relies on a MACD 12, 26, 9 you may want to record these settings in the file name to avoid overwriting your strategy output file, and keep track of the different versions of your strategy output files.
+where the strategy settings values are the parameters related to your strategy, for instance, if your strategy relies on a MACD 12, 26, 9 you may want to record these settings in the file name to avoid overwriting your strategy output file, and keep track of the different versions of your strategy output files.
 
 # Backtesting
+
+## Backtesting actions - excel file
 Before backtesting anything, we need to define what actions to take depending on the signal defined by the strategy.
 For instance: what to do if the strategy happened to deliver at the same time a buying signal and a selling signal while we have a buying position running?
 
-These behaviours can be defined in the excel spreadsheet “backtestStrategy.xlsx”.
+These behaviours can be defined in the excel spreadsheet “backtestStrategy.xlsx” in the scripts folder.
 
 * Tab “Actions”
 	* Columns A to F define the current situation.
@@ -162,11 +171,16 @@ These behaviours can be defined in the excel spreadsheet “backtestStrategy.xls
 	* The only fields that you may want to update here are the 3 last columns, the signals dedicated to machine learning.
 
 
+## Backtesting process - backtestStrategy.py
+
 Now that this is done, open the "scripts\backtestStrategy.py" file.
 
 By default, this file back tests all strategy outputs in the strategy folder you are currently using, unless you comment out the section to define the files list manually.
 
-If you go with the default, update the following variables
+The idea of this file is to run a backtest for each level of Take Profit / Stop Loss that you indicate in the parameters.
+By default, the process will also calculate a backtest without a take profit and without a stop loss (this will be done by setting the TP/SL values to 99,999).
+
+If you go with the default template, update your Min, Max and step for Take Profit and Stop Loss with the following variables:
 ```
 takeProfitFrom = 50
 takeProfitTo = 100
@@ -176,8 +190,6 @@ stopLossFrom = 10
 stopLossTo = 100
 stopLossStep = 10
 ```
-
-By default, the process will also calculate a backtest without a take profit and without a stop loss (this will be done by setting the TP/SL values to 99,999).
 
 If you want to backtest your strategy without take profit and stop loss, set those variables this way:
 ```
@@ -214,29 +226,29 @@ backtestStrategyFileList = [
 # """
 ```
 
-Now that you have produced your backtest files, you might want to compare their performance. I haven’t built a tool to do this automatically, so it’s up to you to use which ever tool you want. I found Tableau, QlikView and Qlik Sense very good tools for visualising those data sets quickly.
+Now that you have produced your backtest files, you might want to compare their performance. I haven’t built a tool to do this automatically, so it’s up to you to use which ever tool you want. I found PowerBI, Tableau, QlikView and Qlik Sense very good tools for visualising those data sets quickly.
 
 Notes:
-* As of now, the backtest process is slow as it loops through the records of a pandas data frame, and I haven’t found a faster way to reach this result.
-* I have have written the backtest logic in python (backtestStrategy.py) and QlikView (backtestStrategy.qvs) and the QlikView file is much faster. However, some differences might still exist between those 2 processes, the python file is the most up to date.
+* As of now, the backtest process is slow as it loops through the records of a pandas data frame, and I haven’t found a faster way to reach this result within python yet.
+* I have have written the backtest logic in python (backtestStrategy.py) and QlikView (backtestStrategy.qvs) and the QlikView process is much faster. However, some differences might still exist between those 2 processes, the python file is the most up to date.
 
 
 # Variables (Technical indicators)
 
 Before heading for predictions, you may want to create variables that will help the machine learning algorithm to take decisions.
 
-The "scripts\quickModelling.py" will help you in this process; with this script, you can choose amongst other things 
+The "scripts\quickModelling.py" will help you in this process; with this script, you can choose amongst other things:
 * which file (from the "data\strategy_backtesting" folder) you want to process
 * how many variables you want to use (you can specify up to 3 levels of correlation you are ready to accept for these variables)
 * what type of target you want to test (swing buy/sell signals, sell/hold/buy signals, buy/close only signals, sell/close only signals)
 
-The script will generate a list of technical indicators, keep only the most relevant ones and feed a neural network with to them to make predictions.
+The script will generate a list of technical indicators, keep only the most relevant ones and feed them to a neural network to make predictions.
 The predictions will be made on the latest dates from your source data set so you can get a rough idea of the accuracy you can expect for your future production predictions.
 The predictions scoring will be printed at the end opf the script. 
 
 The output of this file will be another csv with ID, timestamp, target and all the indicators selected by the script, and will be stored in "data\models_raw\{myModelRawFile.csv}". 
 
-Keep in mind that the score displayed with this script isn't optimised and could obviously get much better. The purpose here is to give a general idea of the quality of the input data and how it can help and algorithm to classify the targets.
+Keep in mind that the score displayed with this script isn't optimised and could obviously get much better. The purpose here is to give a general idea of the quality of the input data and how it can help an algorithm to classify the targets.
 
 # Predictions
 
@@ -274,7 +286,7 @@ Usually, this gives me a good idea of the quality of the data I input.
 If I’m curious enough at that stage, I can save the predictions, and manually load them into a strategy file ("data\strategy_raw\{myStrategy.csv}") and then backtest it.
 
 ### TPOT
-Finally, if I am satisfied with the accuracy of the predictions, I use the python package TPOT to find the model that fits the best the data, and gives the best predictions.
+Finally, if I am satisfied with the accuracy of the predictions, I use the python package [TPOT](https://epistasislab.github.io/tpot/using/) to find the model that fits the best the data, and gives the best predictions.
 
 As of now, I use TPOT with dask to parallelise the tasks, and I noticed it works the best in a Jupyter notebook.
 So I use the Jupyter notebook "scripts\TPOTClassifier.ipynb" and run it in Jupyter Lab.
